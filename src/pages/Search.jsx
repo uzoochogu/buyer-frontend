@@ -1,41 +1,40 @@
-import React, { useState, useCallback } from "react";
-import debounce from 'lodash/debounce';
+import React, { useState, useEffect } from "react";
+import { useDebounce } from "use-debounce";
 import { searchService } from "../api/services";
 
 const Search = () => {
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState([]); // init to empty array
+  const [debouncedQuery] = useDebounce(query, 300);
+  const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  // Create the debounced search function once
-  const debouncedSearch = useCallback((searchQuery) => {
-    const search = async () => {
-      if (!searchQuery.trim()) {
+  // Effect that runs when the debounced query changes
+  useEffect(() => {
+    const searchWithQuery = async () => {
+      if (!debouncedQuery.trim()) {
         setResults([]);
         return;
       }
-      
+
       try {
         setLoading(true);
-        const response = await searchService.search();  // search(query) // =${encodeURIComponent(searchQuery)}`);
+        console.log("Searching for:", debouncedQuery);
+        const response = await searchService.search(debouncedQuery);
         // Ensure we always set an array, even if the response is null or undefined
         setResults(Array.isArray(response.data) ? response.data : []);
-        console.log('Search response:', response.data); // Debug log
       } catch (error) {
-        console.error('Search failed:', error);
-        setResults([]); // Reset to empty array on error
+        console.error("Search failed:", error);
+        setResults([]);
       } finally {
         setLoading(false);
       }
     };
-    
-    debounce(search, 300)();
-  }, []);
+
+    searchWithQuery();
+  }, [debouncedQuery]);
 
   const handleSearchInput = (e) => {
-    const value = e.target.value;
-    setQuery(value);
-    debouncedSearch(value);
+    setQuery(e.target.value);
   };
 
   return (
@@ -46,8 +45,8 @@ const Search = () => {
           type="text"
           value={query}
           onChange={handleSearchInput}
-          className="flex-1 p-2 border rounded-l"
-          placeholder="Search..."
+          className="flex-1 p-2 border rounded"
+          placeholder="Search for orders or posts..."
         />
       </div>
 
@@ -55,17 +54,22 @@ const Search = () => {
 
       <div>
         {/* Add a check to ensure results is an array before mapping */}
-        {Array.isArray(results) && results.map((result, index) => (
-          <div key={result.id || index} className="bg-white p-4 rounded-lg shadow-md mb-4">
-            <p className="font-semibold">{result.type || 'Unknown'}</p>
-            <p className="text-gray-700">{result.details || 'No details'}</p>
-          </div>
-        ))}
-        {Array.isArray(results) && results.length === 0 && !loading && query && (
-          <div>No results found</div>
-        )}
+        {Array.isArray(results) && results.length > 0
+          ? results.map((result, index) => (
+              <div
+                key={result.id || index}
+                className="bg-white p-4 rounded-lg shadow-md mb-4"
+              >
+                <p className="font-semibold">{result.type || "Unknown"}</p>
+                <p className="text-gray-700">
+                  {result.details || "No details"}
+                </p>
+              </div>
+            ))
+          : !loading && query.trim() && <div>No results found</div>}
       </div>
     </div>
   );
 };
+
 export default Search;

@@ -35,13 +35,14 @@ export const orderService = {
   createOrder: (orderData) => api.post('/api/v1/orders', orderData),
 };
 
-
-// TODO : Support better search
-// export const searchService = {
-//   search: (query) => api.get(`/api/v1/search?query=${encodeURIComponent(query)}`),
-// };
-
 export const searchService = {
-  search: () => api.get(`/api/v1/search?query`),
+  search: (query) => {
+    if (!query || !query.trim()) {
+      // Return a resolved promise with empty array for empty queries
+      return Promise.resolve({ data: [] });
+    }
+    return api.get(`/api/v1/search?query=${encodeURIComponent(query.trim())}`);
+  },
 };
+
 export default api;
