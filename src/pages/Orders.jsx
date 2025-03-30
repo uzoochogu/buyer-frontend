@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { orderService } from "../api/api";
+import { orderService } from "../api/services";
 
 const Orders = () => {
   useEffect(() => {
@@ -10,10 +10,14 @@ const Orders = () => {
   const [loading, setLoading] = useState(true);
   const [newOrder, setNewOrder] = useState({
     user_id: 1, // Default user ID
-    status: "pending"
+    status: "pending",
   });
   const [statusOptions] = useState([
-    "pending", "in_progress", "in_transit", "delivered", "cancelled"
+    "pending",
+    "in_progress",
+    "in_transit",
+    "delivered",
+    "cancelled",
   ]);
 
   useEffect(() => {
@@ -24,10 +28,9 @@ const Orders = () => {
     const { name, value } = e.target;
     setNewOrder({
       ...newOrder,
-      [name]: name === "user_id" ? parseInt(value) : value
+      [name]: name === "user_id" ? parseInt(value) : value,
     });
   };
-
 
   const fetchOrders = async () => {
     try {
@@ -35,7 +38,7 @@ const Orders = () => {
       const response = await orderService.getOrders();
       setOrders(response.data);
     } catch (error) {
-      console.error('Failed to fetch orders:', error);
+      console.error("Failed to fetch orders:", error);
     } finally {
       setLoading(false);
     }
@@ -48,19 +51,19 @@ const Orders = () => {
       // Reset form
       setNewOrder({
         user_id: 1,
-        status: "pending"
+        status: "pending",
       });
       // Refresh orders list
       fetchOrders();
     } catch (error) {
-      console.error('Failed to create order:', error);
+      console.error("Failed to create order:", error);
     }
   };
- 
+
   return (
     <div className="p-8">
       <h1 className="text-3xl font-bold mb-8">Orders</h1>
-      
+
       {/* Create Order Form */}
       <div className="bg-white p-6 rounded-lg shadow-md mb-8">
         <h2 className="text-xl font-semibold mb-4">Create New Order</h2>
@@ -86,22 +89,19 @@ const Orders = () => {
               className="w-full p-2 border rounded"
               required
             >
-              {statusOptions.map(status => (
+              {statusOptions.map((status) => (
                 <option key={status} value={status}>
-                  {status.replace('_', ' ')}
+                  {status.replace("_", " ")}
                 </option>
               ))}
             </select>
           </div>
-          <button
-            type="submit"
-            className="bg-blue-500 text-white p-2 rounded"
-          >
+          <button type="submit" className="bg-blue-500 text-white p-2 rounded">
             Create Order
           </button>
         </form>
       </div>
-      
+
       {/* Orders List */}
       <div className="bg-white p-6 rounded-lg shadow-md">
         <h2 className="text-xl font-semibold mb-4">Orders List</h2>
@@ -119,27 +119,37 @@ const Orders = () => {
                 </tr>
               </thead>
               <tbody>
-                {orders.map(order => (
+                {orders.map((order) => (
                   <tr key={order.id}>
                     <td className="py-2 px-4 border-b">{order.id}</td>
                     <td className="py-2 px-4 border-b">{order.user_id}</td>
                     <td className="py-2 px-4 border-b">
-                      <span className={`px-2 py-1 rounded ${
-                        order.status === 'delivered' ? 'bg-green-100 text-green-800' :
-                        order.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
-                        order.status === 'in_transit' ? 'bg-yellow-100 text-yellow-800' :
-                        order.status === 'cancelled' ? 'bg-red-100 text-red-800' :
-                        'bg-gray-100 text-gray-800'
-                      }`}>
-                        {order.status.replace('_', ' ')}
+                      <span
+                        className={`px-2 py-1 rounded ${
+                          order.status === "delivered"
+                            ? "bg-green-100 text-green-800"
+                            : order.status === "in_progress"
+                            ? "bg-blue-100 text-blue-800"
+                            : order.status === "in_transit"
+                            ? "bg-yellow-100 text-yellow-800"
+                            : order.status === "cancelled"
+                            ? "bg-red-100 text-red-800"
+                            : "bg-gray-100 text-gray-800"
+                        }`}
+                      >
+                        {order.status.replace("_", " ")}
                       </span>
                     </td>
-                    <td className="py-2 px-4 border-b">{new Date(order.created_at).toLocaleString()}</td>
+                    <td className="py-2 px-4 border-b">
+                      {new Date(order.created_at).toLocaleString()}
+                    </td>
                   </tr>
                 ))}
                 {orders.length === 0 && (
                   <tr>
-                    <td colSpan="4" className="py-4 text-center">No orders found</td>
+                    <td colSpan="4" className="py-4 text-center">
+                      No orders found
+                    </td>
                   </tr>
                 )}
               </tbody>

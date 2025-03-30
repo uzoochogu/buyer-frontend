@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { communityService } from "../api/services";
-import InfiniteScroll from 'react-infinite-scroll-component';
+import InfiniteScroll from "react-infinite-scroll-component";
 
 const Community = () => {
   const [posts, setPosts] = useState([]);
@@ -12,11 +12,11 @@ const Community = () => {
     try {
       const response = await communityService.getPosts(page);
       const newPosts = response.data;
-      setPosts(prev => [...prev, ...newPosts]);
+      setPosts((prev) => [...prev, ...newPosts]);
       setHasMore(newPosts.length > 0);
-      setPage(prev => prev + 1);
+      setPage((prev) => prev + 1);
     } catch (error) {
-      console.error('Failed to fetch posts:', error);
+      console.error("Failed to fetch posts:", error);
     }
   };
 
@@ -25,14 +25,17 @@ const Community = () => {
 
     try {
       await communityService.createPost(newPost);
-      setPosts(prev => [{
-        id: Date.now(),
-        user: "CurrentUser",
-        content: newPost,
-      }, ...prev]);
+      setPosts((prev) => [
+        {
+          id: Date.now(),
+          user: "CurrentUser",
+          content: newPost,
+        },
+        ...prev,
+      ]);
       setNewPost("");
     } catch (error) {
-      console.error('Failed to create post:', error);
+      console.error("Failed to create post:", error);
     }
   };
 
@@ -50,7 +53,10 @@ const Community = () => {
           className="w-full p-2 border rounded"
           rows="4"
         />
-        <button onClick={handlePost} className="bg-blue-500 text-white p-2 rounded mt-2">
+        <button
+          onClick={handlePost}
+          className="bg-blue-500 text-white p-2 rounded mt-2"
+        >
           Post
         </button>
       </div>
@@ -70,4 +76,5 @@ const Community = () => {
       </InfiniteScroll>
     </div>
   );
-};export default Community;
+};
+export default Community;

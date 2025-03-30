@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { chatService } from "../api/api";
+import { chatService } from "../api/services";
 
 const Chats = () => {
   const [messages, setMessages] = useState([]);
@@ -17,7 +17,7 @@ const Chats = () => {
         setMessages(response.data);
         scrollToBottom();
       } catch (error) {
-        console.error('Failed to fetch messages:', error);
+        console.error("Failed to fetch messages:", error);
       }
     };
 
@@ -34,7 +34,7 @@ const Chats = () => {
       await chatService.sendChat(newMessage);
       setNewMessage("");
     } catch (error) {
-      console.error('Failed to send message:', error);
+      console.error("Failed to send message:", error);
     }
   };
 
@@ -69,6 +69,5 @@ const Chats = () => {
     </div>
   );
 };
-
 
 export default Chats;
