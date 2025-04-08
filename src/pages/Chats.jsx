@@ -8,6 +8,7 @@ const Chats = () => {
   const [loading, setLoading] = useState(true);
   const messagesEndRef = useRef(null);
   const chatContainerRef = useRef(null);
+  const currentUserId = localStorage.getItem("userId");
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -109,12 +110,14 @@ const Chats = () => {
               <div
                 key={message.id || index}
                 className={`flex ${
-                  message.user === "1" ? "justify-end" : "justify-start"
+                  message.user === currentUserId
+                    ? "justify-end"
+                    : "justify-start"
                 }`}
               >
                 <div
                   className={`max-w-xs md:max-w-md rounded-lg px-4 py-2 ${
-                    message.user === "1"
+                    message.user === currentUserId
                       ? "bg-blue-500 text-white rounded-br-none"
                       : "bg-gray-200 text-gray-800 rounded-bl-none"
                   }`}
@@ -122,7 +125,9 @@ const Chats = () => {
                   <p>{message.message}</p>
                   <p
                     className={`text-xs mt-1 ${
-                      message.user === "1" ? "text-blue-100" : "text-gray-500"
+                      message.user === currentUserId
+                        ? "text-blue-100"
+                        : "text-gray-500"
                     }`}
                   >
                     {new Date(message.created_at).toLocaleTimeString()}

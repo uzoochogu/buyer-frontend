@@ -2,18 +2,33 @@ import React, { useState } from "react";
 import { authService } from "../api/services";
 import { useNavigate, Link } from "react-router-dom";
 
-const Login = ({ setIsAuthenticated }) => {
+const Register = ({ setIsAuthenticated }) => {
   const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleLogin = async (e) => {
+  const handleRegister = async (e) => {
     e.preventDefault();
 
-    if (!username.trim() || !password.trim()) {
-      setError("Username and password are required");
+    // Validate input
+    if (!username.trim() || !email.trim() || !password.trim()) {
+      setError("All fields are required");
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError("Passwords do not match");
+      return;
+    }
+
+    // Simple email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setError("Please enter a valid email address");
       return;
     }
 
@@ -21,7 +36,7 @@ const Login = ({ setIsAuthenticated }) => {
       setLoading(true);
       setError("");
 
-      const response = await authService.login(username, password);
+      const response = await authService.register(username, email, password);
 
       if (response.data.status === "success") {
         // Store tokens in localStorage
@@ -39,13 +54,14 @@ const Login = ({ setIsAuthenticated }) => {
         // Redirect to dashboard
         navigate("/dashboard");
       } else {
-        setError("Login failed: " + (response.data.message || "Unknown error"));
+        setError(
+          "Registration failed: " + (response.data.message || "Unknown error")
+        );
       }
     } catch (error) {
-      console.error("Error logging in:", error);
+      console.error("Error registering:", error);
       setError(
-        error.response?.data?.message ||
-          "Failed to login. Please check your credentials and try again."
+        error.response?.data?.message || "Failed to register. Please try again."
       );
     } finally {
       setLoading(false);
@@ -56,7 +72,7 @@ const Login = ({ setIsAuthenticated }) => {
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100">
       <div className="w-full max-w-md bg-white p-8 rounded-lg shadow-md">
         <h1 className="text-2xl font-bold mb-6 text-center">
-          Login to Your Account
+          Create an Account
         </h1>
 
         {error && (
@@ -65,7 +81,7 @@ const Login = ({ setIsAuthenticated }) => {
           </div>
         )}
 
-        <form onSubmit={handleLogin}>
+        <form onSubmit={handleRegister}>
           <div className="mb-4">
             <label
               className="block text-gray-700 text-sm font-bold mb-2"
@@ -76,7 +92,7 @@ const Login = ({ setIsAuthenticated }) => {
             <input
               id="username"
               type="text"
-              placeholder="Enter your username"
+              placeholder="Choose a username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               className="w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -84,7 +100,25 @@ const Login = ({ setIsAuthenticated }) => {
             />
           </div>
 
-          <div className="mb-6">
+          <div className="mb-4">
+            <label
+              className="block text-gray-700 text-sm font-bold mb-2"
+              htmlFor="email"
+            >
+              Email
+            </label>
+            <input
+              id="email"
+              type="email"
+              placeholder="Enter your email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+              disabled={loading}
+            />
+          </div>
+
+          <div className="mb-4">
             <label
               className="block text-gray-700 text-sm font-bold mb-2"
               htmlFor="password"
@@ -94,9 +128,27 @@ const Login = ({ setIsAuthenticated }) => {
             <input
               id="password"
               type="password"
-              placeholder="Enter your password"
+              placeholder="Create a password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              className="w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+              disabled={loading}
+            />
+          </div>
+
+          <div className="mb-6">
+            <label
+              className="block text-gray-700 text-sm font-bold mb-2"
+              htmlFor="confirmPassword"
+            >
+              Confirm Password
+            </label>
+            <input
+              id="confirmPassword"
+              type="password"
+              placeholder="Confirm your password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
               className="w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
               disabled={loading}
             />
@@ -111,15 +163,15 @@ const Login = ({ setIsAuthenticated }) => {
             }`}
             disabled={loading}
           >
-            {loading ? "Logging in..." : "Login"}
+            {loading ? "Creating Account..." : "Register"}
           </button>
         </form>
 
         <div className="mt-4 text-center">
           <p className="text-gray-600">
-            Don't have an account?{" "}
-            <Link to="/register" className="text-blue-500 hover:underline">
-              Register
+            Already have an account?{" "}
+            <Link to="/" className="text-blue-500 hover:underline">
+              Login
             </Link>
           </p>
         </div>
@@ -128,4 +180,4 @@ const Login = ({ setIsAuthenticated }) => {
   );
 };
 
-export default Login;
+export default Register;
