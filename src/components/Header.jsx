@@ -40,7 +40,7 @@ const Header = ({ setIsAuthenticated }) => {
         className="text-2xl font-bold cursor-pointer hover:text-gray-300 transition-colors"
         onClick={handleTitleClick}
       >
-        Agentic ECommerce App
+        Agentic eCommerce
       </h1>
 
       <div className="flex items-center">
