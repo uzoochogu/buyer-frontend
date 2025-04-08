@@ -96,8 +96,10 @@ export const communityService = {
 };
 
 export const chatService = {
-  getChats: () => api.get('/api/v1/chats'),
-  sendChat: (message) => api.post('/api/v1/chats', { user_id: localStorage.getItem('userId') || 1, message }),
+  getConversations: () => api.get('/api/v1/conversations'),
+  createConversation: (userId, name) => api.post('/api/v1/conversations', { user_id: userId, name }),
+  getMessages: (conversationId) => api.get(`/api/v1/conversations/${conversationId}/messages`),
+  sendMessage: (conversationId, content) => api.post(`/api/v1/conversations/${conversationId}/messages`, { content }),
 };
 
 export const orderService = {
@@ -107,6 +109,10 @@ export const orderService = {
 
 export const searchService = {
   search: (query) => api.get(`/api/v1/search?query=${encodeURIComponent(query)}`),
+};
+
+export const userService = {
+  getUsers: () => api.get('/api/v1/users'),
 };
 
 export default api;
