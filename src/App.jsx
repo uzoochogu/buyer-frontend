@@ -7,6 +7,7 @@ import Search from "./pages/Search";
 import Community from "./pages/Community";
 import Chats from "./pages/Chats";
 import Orders from "./pages/Orders";
+import PostDetail from "./pages/PostDetail";
 import Sidebar from "./components/Sidebar";
 import Header from "./components/Header";
 
@@ -119,7 +120,14 @@ const App = () => {
                 </ProtectedRoute>
               }
             />
-
+            <Route
+              path="/community/post/:id"
+              element={
+                <ProtectedRoute>
+                  <PostDetail />
+                </ProtectedRoute>
+              }
+            />
             {/* Catch-all route */}
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>

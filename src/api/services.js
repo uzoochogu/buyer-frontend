@@ -92,8 +92,54 @@ export const dashboardService = {
 
 export const communityService = {
   getPosts: (page = 1) => api.get(`/api/v1/posts?page=${page}`),
-  createPost: (content) => api.post('/api/v1/posts', { user_id: localStorage.getItem('userId') || 1, content }),
+  getPostById: (id) => api.get(`/api/v1/posts/${id}`),
+  getSubscriptions: () => api.get('/api/v1/posts/subscriptions'),
+  getPopularTags: () => api.get('/api/v1/posts/tags'),
+  filterPosts: (filters) => {
+    let queryString = '';
+
+    if (typeof filters === 'string') {
+      // If it's already a string, use it directly
+      queryString = filters;
+    } else if (filters instanceof URLSearchParams) {
+      // If it's a URLSearchParams object, convert to string
+      queryString = filters.toString();
+    } else if (typeof filters === 'object') {
+      // If it's a regular object, build the query params
+      const queryParams = new URLSearchParams();
+
+      // Only add parameters that are actually provided and have values
+      if (filters.tags && filters.tags.length > 0) {
+        queryParams.append('tags', filters.tags.join(','));
+      }
+
+      if (filters.location && filters.location.trim() !== '') {
+        queryParams.append('location', filters.location);
+      }
+
+      if (filters.status && filters.status.trim() !== '') {
+        queryParams.append('status', filters.status);
+      }
+
+      // Only add is_product_request if it's explicitly true
+      if (filters.isProductRequest === true) {
+        queryParams.append('is_product_request', 'true');
+      }
+
+      if (filters.page && filters.page > 0) {
+        queryParams.append('page', filters.page.toString());
+      }
+
+      queryString = queryParams.toString();
+    }
+    return api.get(`/api/v1/posts/filter?${queryString}`)
+  },
+  createPost: (postData) => api.post('/api/v1/posts', postData),
+  subscribeToPost: (id) => api.post(`/api/v1/posts/${id}/subscribe`),
+  unsubscribeFromPost: (id) => api.post(`/api/v1/posts/${id}/unsubscribe`),
+  updatePost: (id, postData) => api.put(`/api/v1/posts/${id}`, postData),
 };
+
 
 export const chatService = {
   getConversations: () => api.get('/api/v1/conversations'),
