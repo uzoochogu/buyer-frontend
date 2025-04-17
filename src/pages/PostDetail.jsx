@@ -1,95 +1,103 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { communityService } from "../api/services";
+import { communityService, offerService } from "../api/services";
+import OfferForm from "../components/OfferForm";
+import OfferList from "../components/OfferList";
 
 const PostDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [post, setPost] = useState(null);
+  const [offers, setOffers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [newStatus, setNewStatus] = useState("");
+  const [showOfferForm, setShowOfferForm] = useState(false);
+  const queryParams = new URLSearchParams(location.search);
+  const showOfferParam = queryParams.get("offer");
 
   useEffect(() => {
-    const fetchPost = async () => {
+    const fetchPostAndOffers = async () => {
       try {
         setLoading(true);
-        const response = await communityService.getPostById(id);
-        setPost(response.data);
-      } catch (error) {
-        console.error("Failed to fetch post:", error);
-        setError(
-          "Failed to load post. It may have been deleted or you don't have permission to view it."
-        );
+        setError(null);
+
+        // Fetch post details
+        const postResponse = await communityService.getPostById(id);
+        setPost(postResponse.data);
+
+        // Fetch offers for this post
+        const offersResponse = await offerService.getOffersForPost(id);
+        setOffers(offersResponse.data);
+      } catch (err) {
+        console.error("Error fetching post details:", err);
+        setError("Failed to load post details. Please try again later.");
       } finally {
         setLoading(false);
       }
     };
 
-    fetchPost();
-  }, [id]);
+    fetchPostAndOffers();
 
-  const handleSubscribe = async () => {
-    try {
-      if (post.is_subscribed) {
-        await communityService.unsubscribeFromPost(post.id);
-      } else {
-        await communityService.subscribeToPost(post.id);
-      }
-
-      // Update the post state
-      setPost({
-        ...post,
-        is_subscribed: !post.is_subscribed,
-        subscription_count: post.is_subscribed
-          ? post.subscription_count - 1
-          : post.subscription_count + 1,
-      });
-    } catch (error) {
-      console.error("Failed to update subscription:", error);
+    if (showOfferParam === "new") {
+      setShowOfferForm(true);
     }
+  }, [id, showOfferParam]);
+
+  const handleOfferCreated = () => {
+    // Refresh offers list
+    offerService
+      .getOffersForPost(id)
+      .then((response) => {
+        setOffers(response.data);
+        setShowOfferForm(false);
+      })
+      .catch((err) => {
+        console.error("Error refreshing offers:", err);
+      });
   };
 
-  const handleUpdateStatus = async () => {
-    if (!newStatus || newStatus === post.request_status) return;
+  const handleStatusChange = (offerId, newStatus) => {
+    // Update the status of the offer in the local state
+    setOffers(
+      offers.map((offer) =>
+        offer.id === offerId ? { ...offer, status: newStatus } : offer
+      )
+    );
 
-    try {
-      await communityService.updatePost(post.id, {
-        request_status: newStatus,
-      });
+    // If an offer was accepted, update all other offers to rejected
+    if (newStatus === "accepted") {
+      setOffers(
+        offers.map((offer) =>
+          offer.id !== offerId && offer.status === "pending"
+            ? { ...offer, status: "rejected" }
+            : offer
+        )
+      );
 
-      // Update the post state
-      setPost({
-        ...post,
-        request_status: newStatus,
-      });
-
-      setNewStatus("");
-    } catch (error) {
-      console.error("Failed to update post status:", error);
+      // Also update the post status if it's a product request
+      if (post.is_product_request) {
+        setPost({ ...post, request_status: "fulfilled" });
+      }
     }
   };
 
   if (loading) {
     return (
-      <div className="p-8 text-center">
-        <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-blue-500 border-r-transparent"></div>
-        <p className="mt-2">Loading post...</p>
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="p-8">
-        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6">
-          <p>{error}</p>
-        </div>
+      <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4">
+        <p>{error}</p>
         <button
           onClick={() => navigate("/community")}
-          className="text-blue-500 hover:text-blue-700"
+          className="mt-2 text-blue-500 hover:underline"
         >
-          &larr; Back to Community
+          Back to Community
         </button>
       </div>
     );
@@ -97,82 +105,61 @@ const PostDetail = () => {
 
   if (!post) {
     return (
-      <div className="p-8">
-        <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 mb-6">
-          <p>Post not found</p>
-        </div>
+      <div className="text-center py-8">
+        <p className="text-gray-500">Post not found</p>
         <button
           onClick={() => navigate("/community")}
-          className="text-blue-500 hover:text-blue-700"
+          className="mt-2 text-blue-500 hover:underline"
         >
-          &larr; Back to Community
+          Back to Community
         </button>
       </div>
     );
   }
 
+  const isPostOwner =
+    post.user_id === parseInt(localStorage.getItem("user_id"));
+  const canMakeOffer =
+    !isPostOwner &&
+    post.is_product_request &&
+    post.request_status !== "fulfilled";
+
   return (
-    <div className="p-8">
-      <button
-        onClick={() => navigate("/community")}
-        className="text-blue-500 hover:text-blue-700 mb-6 flex items-center"
-      >
-        <svg
-          className="h-4 w-4 mr-1"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
+    <div className="max-w-4xl mx-auto">
+      <div className="mb-4">
+        <button
+          onClick={() => navigate("/community")}
+          className="flex items-center text-blue-500 hover:underline"
         >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M10 19l-7-7m0 0l7-7m-7 7h18"
-          />
-        </svg>
-        Back to Community
-      </button>
-
-      <div className="bg-white p-6 rounded-lg shadow-md">
-        <div className="flex justify-between items-start mb-4">
-          <div>
-            <h1 className="text-2xl font-bold mb-1">
-              {post.is_product_request ? "Product Request" : "Post"}
-            </h1>
-            <div className="flex items-center">
-              <p className="font-semibold text-lg mr-2">{post.username}</p>
-              <p className="text-sm text-gray-500">
-                {new Date(post.created_at).toLocaleString()}
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={handleSubscribe}
-            className={`px-3 py-1 rounded-full text-sm ${
-              post.is_subscribed
-                ? "bg-blue-500 text-white"
-                : "bg-gray-200 text-gray-800 hover:bg-gray-300"
-            }`}
+          <svg
+            className="h-4 w-4 mr-1"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
           >
-            {post.is_subscribed ? "Subscribed" : "Subscribe"} (
-            {post.subscription_count})
-          </button>
-        </div>
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M10 19l-7-7m0 0l7-7m-7 7h18"
+            />
+          </svg>
+          Back to Community
+        </button>
+      </div>
 
-        <div className="mb-6">
-          <p className="text-gray-700 text-lg whitespace-pre-line">
-            {post.content}
-          </p>
-        </div>
-
-        {post.is_product_request && (
-          <div className="mb-6">
-            <div className="flex items-center mb-3">
-              <span className="bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full text-sm mr-2">
-                Product Request
-              </span>
+      <div className="bg-white p-6 rounded-lg shadow-md mb-6">
+        <div className="flex justify-between items-start mb-2">
+          <div>
+            <p className="font-semibold text-lg">{post.username}</p>
+            <p className="text-xs text-gray-500">
+              {new Date(post.created_at).toLocaleString()}
+            </p>
+          </div>
+          {post.is_product_request && (
+            <div>
               <span
-                className={`px-2 py-1 rounded-full text-sm ${
+                className={`px-2 py-1 rounded-full text-xs ${
                   post.request_status === "open"
                     ? "bg-green-100 text-green-800"
                     : post.request_status === "in_progress"
@@ -188,53 +175,29 @@ const PostDetail = () => {
                   post.request_status.replace("_", " ").slice(1)}
               </span>
             </div>
+          )}
+        </div>
 
-            {/* Status update form (only for post owner) */}
-            {post.user_id === parseInt(localStorage.getItem("user_id")) && (
-              <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-                <h3 className="text-md font-semibold mb-2">
-                  Update Request Status
-                </h3>
-                <div className="flex">
-                  <select
-                    value={newStatus}
-                    onChange={(e) => setNewStatus(e.target.value)}
-                    className="flex-1 p-2 border rounded-l"
-                  >
-                    <option value="">Select new status</option>
-                    <option value="open">Open</option>
-                    <option value="in_progress">In Progress</option>
-                    <option value="closed">Closed</option>
-                    <option value="fulfilled">Fulfilled</option>
-                  </select>
-                  <button
-                    onClick={handleUpdateStatus}
-                    disabled={!newStatus || newStatus === post.request_status}
-                    className={`px-4 py-2 rounded-r ${
-                      !newStatus || newStatus === post.request_status
-                        ? "bg-gray-300 cursor-not-allowed"
-                        : "bg-blue-500 hover:bg-blue-600 text-white"
-                    }`}
-                  >
-                    Update
-                  </button>
-                </div>
-              </div>
+        <p className="text-gray-700 mt-2 mb-3">{post.content}</p>
+
+        {post.is_product_request && (
+          <div className="mb-3">
+            <span className="bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full text-xs mr-2">
+              Product Request
+            </span>
+
+            {post.price_range && (
+              <span className="bg-gray-100 text-gray-800 px-2 py-1 rounded-full text-xs ml-2">
+                {post.price_range}
+              </span>
             )}
           </div>
         )}
 
-        {post.price_range && (
-          <div className="mb-4">
-            <span className="font-semibold">Price Range:</span>{" "}
-            {post.price_range}
-          </div>
-        )}
-
         {post.location && (
-          <div className="flex items-center text-gray-600 mb-4">
+          <div className="flex items-center text-sm text-gray-600 mb-3">
             <svg
-              className="h-5 w-5 mr-1"
+              className="h-4 w-4 mr-1"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -252,26 +215,54 @@ const PostDetail = () => {
                 d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
               />
             </svg>
-            <span className="font-semibold mr-1">Location:</span>{" "}
             {post.location}
           </div>
         )}
 
         {post.tags && post.tags.length > 0 && (
-          <div className="mb-4">
-            <p className="font-semibold mb-2">Tags:</p>
-            <div className="flex flex-wrap gap-2">
-              {post.tags.map((tag) => (
-                <span
-                  key={tag}
-                  className="bg-gray-100 text-gray-800 px-2 py-1 rounded-full text-sm"
-                >
-                  #{tag}
-                </span>
-              ))}
-            </div>
+          <div className="flex flex-wrap gap-2">
+            {post.tags.map((tag) => (
+              <span
+                key={tag}
+                className="bg-gray-100 text-gray-800 px-2 py-1 rounded-full text-xs"
+              >
+                #{tag}
+              </span>
+            ))}
           </div>
         )}
+      </div>
+
+      {/* Offer section */}
+      <div className="mb-6">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-semibold">Offers</h2>
+
+          {canMakeOffer && (
+            <button
+              onClick={() => setShowOfferForm(!showOfferForm)}
+              className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+            >
+              {showOfferForm ? "Cancel" : "Make an Offer"}
+            </button>
+          )}
+        </div>
+
+        {showOfferForm && (
+          <div className="mb-6">
+            <OfferForm
+              postId={id}
+              onOfferCreated={handleOfferCreated}
+              onCancel={() => setShowOfferForm(false)}
+            />
+          </div>
+        )}
+
+        <OfferList
+          offers={offers}
+          isPostOwner={isPostOwner}
+          onStatusChange={handleStatusChange}
+        />
       </div>
     </div>
   );

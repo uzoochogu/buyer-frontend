@@ -795,6 +795,20 @@ const Community = () => {
                   ))}
                 </div>
               )}
+              {post.is_product_request &&
+                post.request_status === "open" &&
+                post.user_id !== parseInt(localStorage.getItem("user_id")) && (
+                  <div className="mt-3">
+                    <button
+                      onClick={() =>
+                        navigate(`/community/post/${post.id}?offer=new`)
+                      }
+                      className="bg-blue-500 text-white px-3 py-1 rounded-md hover:bg-blue-600 text-sm"
+                    >
+                      Make an Offer
+                    </button>
+                  </div>
+                )}
             </div>
           ))}
         </InfiniteScroll>
