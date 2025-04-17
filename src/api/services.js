@@ -38,7 +38,7 @@ api.interceptors.response.use(
       originalRequest._retry = true;
 
       try {
-        const refreshToken = localStorage.getItem('refreshToken');
+        const refreshToken = localStorage.getItem('refresh_token');
         if (!refreshToken) {
           // No refresh token available, redirect to login
           window.location.href = '/';
@@ -53,7 +53,7 @@ api.interceptors.response.use(
         if (response.data.status === 'success') {
           // Update tokens in localStorage
           localStorage.setItem('token', response.data.token);
-          localStorage.setItem('refreshToken', response.data.refresh_token);
+          localStorage.setItem('refresh_token', response.data.refresh_token);
 
           // Update the authorization header
           api.defaults.headers.common['Authorization'] = `Bearer ${response.data.token}`;
@@ -159,6 +159,43 @@ export const searchService = {
 
 export const userService = {
   getUsers: () => api.get('/api/v1/users'),
+};
+
+// Add this to the existing services.js file, in the exports section
+
+export const offerService = {
+  // Get all offers for a post
+  getOffersForPost: (postId) => api.get(`/api/v1/posts/${postId}/offers`),
+  
+  // Create a new offer for a post
+  createOffer: (postId, offerData) => api.post(`/api/v1/posts/${postId}/offers`, offerData),
+  
+  // Get a specific offer
+  getOffer: (id) => api.get(`/api/v1/offers/${id}`),
+  
+  // Update an offer
+  updateOffer: (id, offerData) => api.put(`/api/v1/offers/${id}`, offerData),
+  
+  // Accept an offer
+  acceptOffer: (id) => api.post(`/api/v1/offers/${id}/accept`),
+  
+  // Reject an offer
+  rejectOffer: (id) => api.post(`/api/v1/offers/${id}/reject`),
+  
+  // Get all offers made by the current user
+  getMyOffers: () => api.get('/api/v1/offers/my-offers'),
+  
+  // Get all offers received for the current user's posts
+  getReceivedOffers: () => api.get('/api/v1/offers/received'),
+  
+  // Get notifications for the current user
+  getNotifications: () => api.get('/api/v1/offers/notifications'),
+  
+  // Mark a notification as read
+  markNotificationRead: (id) => api.post(`/api/v1/offers/notifications/${id}/read`),
+  
+  // Mark all notifications as read
+  markAllNotificationsRead: () => api.post('/api/v1/offers/notifications/read-all'),
 };
 
 export default api;

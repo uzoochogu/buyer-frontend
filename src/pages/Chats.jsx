@@ -12,8 +12,8 @@ const Chats = () => {
   const [conversationName, setConversationName] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  
-  const currentUserId = localStorage.getItem('userId') || '1'; // Default to 1 if not set
+
+  const currentUserId = localStorage.getItem("user_id");
   const messagesEndRef = useRef(null);
 
   // Fetch conversations
@@ -21,12 +21,12 @@ const Chats = () => {
     try {
       setLoading(true);
       setError(null);
-      
+
       // For testing - if API fails, use mock data
       try {
         const response = await chatService.getConversations();
         setConversations(response.data || []);
-        
+
         // Set first conversation as active if none selected and there are conversations
         if (response.data && response.data.length > 0 && !activeConversation) {
           setActiveConversation(response.data[0].id);
@@ -36,7 +36,7 @@ const Chats = () => {
         // Fallback to empty array if API fails
         setConversations([]);
       }
-      
+
       setLoading(false);
     } catch (error) {
       console.error("Failed to fetch conversations:", error);
@@ -51,19 +51,19 @@ const Chats = () => {
       // Mock data for now - replace with actual API call when available
       const mockUsers = [
         { id: 1, username: "user1" },
-        { id: 2, username: "user2" }
+        { id: 2, username: "user2" },
       ];
-      
+
       // Filter out current user
       const filteredUsers = mockUsers.filter(
-        user => user.id.toString() !== currentUserId
+        (user) => user.id.toString() !== currentUserId
       );
       setUsers(filteredUsers);
     } catch (error) {
       console.error("Failed to fetch users:", error);
     }
   };
-  
+
   useEffect(() => {
     fetchConversations();
     fetchUsers();
@@ -83,7 +83,7 @@ const Chats = () => {
           setMessages([]);
         }
       };
-      
+
       fetchMessages();
       const interval = setInterval(fetchMessages, 3000);
       return () => clearInterval(interval);
@@ -103,26 +103,26 @@ const Chats = () => {
     try {
       // Send the message
       await chatService.sendMessage(activeConversation, newMessage);
-      
+
       // Optimistically add the message to the UI
       const newMsg = {
         id: Date.now(), // Temporary ID
         sender_id: parseInt(currentUserId),
         content: newMessage,
-        created_at: new Date().toISOString()
+        created_at: new Date().toISOString(),
       };
-      
-      setMessages(prev => [...prev, newMsg]);
-      
+
+      setMessages((prev) => [...prev, newMsg]);
+
       // Update the last message in the conversation list
-      setConversations(prev => 
-        prev.map(conv => 
-          conv.id === activeConversation 
-            ? { ...conv, lastMessage: newMessage } 
+      setConversations((prev) =>
+        prev.map((conv) =>
+          conv.id === activeConversation
+            ? { ...conv, lastMessage: newMessage }
             : conv
         )
       );
-      
+
       setNewMessage("");
       scrollToBottom();
     } catch (error) {
@@ -132,29 +132,31 @@ const Chats = () => {
 
   const handleCreateConversation = async () => {
     if (!selectedUser) return;
-    
+
     try {
       const userId = parseInt(selectedUser);
-      const name = conversationName || `Chat with ${users.find(u => u.id === userId)?.username || 'User'}`;
-      
+      const name =
+        conversationName ||
+        `Chat with ${users.find((u) => u.id === userId)?.username || "User"}`;
+
       const response = await chatService.createConversation(userId, name);
-      
+
       // Add the new conversation to the list
-      const selectedUserObj = users.find(u => u.id === userId);
+      const selectedUserObj = users.find((u) => u.id === userId);
       const newConversation = {
         id: response.data.conversation_id,
         name: name,
-        other_username: selectedUserObj?.username || 'User',
-        lastMessage: '',
-        created_at: new Date().toISOString()
+        other_username: selectedUserObj?.username || "User",
+        lastMessage: "",
+        created_at: new Date().toISOString(),
       };
-      
-      setConversations(prev => [newConversation, ...prev]);
+
+      setConversations((prev) => [newConversation, ...prev]);
       setActiveConversation(response.data.conversation_id);
       setShowNewConversation(false);
       setSelectedUser("");
       setConversationName("");
-      
+
       // Refresh conversations to ensure we have the latest data
       fetchConversations();
     } catch (error) {
@@ -171,7 +173,9 @@ const Chats = () => {
           {messages.map((message, index) => (
             <div key={index} className="mb-2">
               <p className="font-semibold">{message.user || "User"}</p>
-              <p className="text-gray-700">{message.message || message.content}</p>
+              <p className="text-gray-700">
+                {message.message || message.content}
+              </p>
             </div>
           ))}
           <div ref={messagesEndRef} />
@@ -184,7 +188,7 @@ const Chats = () => {
             className="flex-1 p-2 border rounded-l"
             placeholder="Type a message..."
             onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
+              if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
                 handleSend();
               }
@@ -227,7 +231,7 @@ const Chats = () => {
   return (
     <div className="p-8">
       <h1 className="text-3xl font-bold mb-4">Chat</h1>
-      
+
       {/* Always show the new conversation button */}
       <div className="mb-4">
         <button
@@ -236,7 +240,7 @@ const Chats = () => {
         >
           {showNewConversation ? "Cancel" : "New Conversation"}
         </button>
-        
+
         {showNewConversation && (
           <div className="mt-4 p-4 bg-white rounded shadow-md">
             <h3 className="font-semibold mb-2">Start a new conversation</h3>
@@ -246,7 +250,7 @@ const Chats = () => {
               className="w-full p-2 mb-2 border rounded"
             >
               <option value="">Select a user</option>
-              {users.map(user => (
+              {users.map((user) => (
                 <option key={user.id} value={user.id}>
                   {user.username}
                 </option>
@@ -263,9 +267,9 @@ const Chats = () => {
               onClick={handleCreateConversation}
               disabled={!selectedUser}
               className={`px-4 py-2 rounded ${
-                selectedUser 
-                  ? 'bg-blue-500 text-white' 
-                  : 'bg-gray-300 cursor-not-allowed'
+                selectedUser
+                  ? "bg-blue-500 text-white"
+                  : "bg-gray-300 cursor-not-allowed"
               }`}
             >
               Create Conversation
@@ -273,31 +277,41 @@ const Chats = () => {
           </div>
         )}
       </div>
-      
+
       {/* If no conversations, show a message */}
       {conversations.length === 0 ? (
         <div className="bg-white p-8 rounded-lg shadow-md text-center">
-          <p className="text-gray-500 mb-4">You don't have any conversations yet.</p>
-          <p className="text-gray-500">Click "New Conversation" to start chatting!</p>
+          <p className="text-gray-500 mb-4">
+            You don't have any conversations yet.
+          </p>
+          <p className="text-gray-500">
+            Click "New Conversation" to start chatting!
+          </p>
         </div>
       ) : (
         <div className="flex h-[calc(100vh-250px)] bg-white rounded-lg shadow-md">
           {/* Conversations sidebar */}
           <div className="w-1/4 bg-gray-100 rounded-l-lg overflow-y-auto">
-            {conversations.map(conv => (
-              <div 
+            {conversations.map((conv) => (
+              <div
                 key={conv.id}
                 className={`p-4 cursor-pointer border-b border-gray-200 ${
-                  activeConversation === conv.id ? 'bg-blue-100' : 'hover:bg-gray-200'
+                  activeConversation === conv.id
+                    ? "bg-blue-100"
+                    : "hover:bg-gray-200"
                 }`}
                 onClick={() => setActiveConversation(conv.id)}
               >
-                <p className="font-semibold">{conv.other_username || conv.name}</p>
-                <p className="text-sm text-gray-500 truncate">{conv.lastMessage || 'No messages yet'}</p>
+                <p className="font-semibold">
+                  {conv.other_username || conv.name}
+                </p>
+                <p className="text-sm text-gray-500 truncate">
+                  {conv.lastMessage || "No messages yet"}
+                </p>
               </div>
             ))}
           </div>
-          
+
           {/* Chat area */}
           <div className="w-3/4 flex flex-col">
             {activeConversation ? (
@@ -309,7 +323,9 @@ const Chats = () => {
                       <div
                         key={message.id || index}
                         className={`flex mb-4 ${
-                          message.sender_id?.toString() === currentUserId ? "justify-end" : "justify-start"
+                          message.sender_id?.toString() === currentUserId
+                            ? "justify-end"
+                            : "justify-start"
                         }`}
                       >
                         <div
@@ -320,9 +336,13 @@ const Chats = () => {
                           }`}
                         >
                           <p>{message.content}</p>
-                          <p className={`text-xs mt-1 ${
-                            message.sender_id?.toString() === currentUserId ? "text-blue-100" : "text-gray-500"
-                          }`}>
+                          <p
+                            className={`text-xs mt-1 ${
+                              message.sender_id?.toString() === currentUserId
+                                ? "text-blue-100"
+                                : "text-gray-500"
+                            }`}
+                          >
                             {new Date(message.created_at).toLocaleTimeString()}
                           </p>
                         </div>
@@ -330,12 +350,14 @@ const Chats = () => {
                     ))
                   ) : (
                     <div className="flex items-center justify-center h-full">
-                      <p className="text-gray-500">No messages yet. Start the conversation!</p>
+                      <p className="text-gray-500">
+                        No messages yet. Start the conversation!
+                      </p>
                     </div>
                   )}
                   <div ref={messagesEndRef} />
                 </div>
-                
+
                 {/* Message input */}
                 <div className="border-t p-4 flex">
                   <textarea
@@ -345,7 +367,7 @@ const Chats = () => {
                     placeholder="Type a message..."
                     rows="2"
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
+                      if (e.key === "Enter" && !e.shiftKey) {
                         e.preventDefault();
                         handleSend();
                       }
@@ -362,7 +384,9 @@ const Chats = () => {
               </>
             ) : (
               <div className="flex-1 flex items-center justify-center">
-                <p className="text-gray-500">Select a conversation to start chatting</p>
+                <p className="text-gray-500">
+                  Select a conversation to start chatting
+                </p>
               </div>
             )}
           </div>

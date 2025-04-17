@@ -93,53 +93,82 @@ const Community = () => {
     fetchPopularTags();
   }, []);
 
-  const fetchPosts = async () => {
+  const fetchPosts = async (isRefresh = false) => {
     if (loading) return;
 
     try {
       setLoading(true);
-      setError(null);
+      if (isRefresh) {
+        setError(null);
+      }
 
       let response;
 
       if (isFiltering) {
-        response = await communityService.filterPosts({
-          tags: selectedTags,
-          location: location,
-          status: status,
-          isProductRequest: isProductRequest,
-        });
+        // Build filter parameters
+        const filterParams = new URLSearchParams();
+        if (selectedTags.length > 0)
+          filterParams.append("tags", selectedTags.join(","));
+        if (location) filterParams.append("location", location);
+        if (status) filterParams.append("status", status);
+        if (isProductRequest) filterParams.append("is_public", "true");
+
+        // Use filter API with proper parameters
+        response = await communityService.filterPosts(filterParams.toString());
       } else {
-        // Use regular posts API
-        response = await communityService.getPosts(page);
+        // Use regular posts API with current page
+        const currentPage = isRefresh ? 1 : page;
+        response = await communityService.getPosts(currentPage);
       }
 
       const newPosts = response.data;
 
-      // Handle empty results
-      if (newPosts.length === 0) {
+      if (!newPosts || newPosts.length === 0) {
         setHasMore(false);
-        if (page === 1) {
-          // If it's the first page and no results, show a message
-          setError(
-            isFiltering
-              ? "No posts found matching your filters. Try different filters or create a new post!"
-              : "No posts found. Be the first to create a post!"
-          );
+        if (isRefresh || page === 1) {
+          // Only show "no posts" message on first page or refresh
+          setPosts([]);
+          if (isFiltering) {
+            setError(
+              "No posts found matching your filters. Try different filters or create a new post!"
+            );
+          } else if (isRefresh) {
+            // Don't show error on refresh if there are no posts, just show empty state
+            setError(null);
+          }
         }
       } else {
-        // Only append posts if we're not on the first page or if we're not filtering
-        if (page === 1) {
+        if (isRefresh || page === 1) {
+          // Replace posts on refresh or first page
           setPosts(newPosts);
         } else {
-          setPosts((prev) => [...prev, ...newPosts]);
+          // Append posts for subsequent pages
+          setPosts((prev) => {
+            // Check for duplicates (can happen with race conditions)
+            const existingIds = new Set(prev.map((post) => post.id));
+            const uniqueNewPosts = newPosts.filter(
+              (post) => !existingIds.has(post.id)
+            );
+            return [...prev, ...uniqueNewPosts];
+          });
         }
-        setPage((prev) => prev + 1);
-        setHasMore(newPosts.length >= 10); // Assuming page size is 10
+
+        // Only increment page if this wasn't a refresh and we got posts
+        if (!isRefresh) {
+          setPage((prev) => prev + 1);
+        } else if (isRefresh) {
+          // If this was a refresh, set page to 2 for next load
+          setPage(2);
+        }
+
+        // Only set hasMore if we got a full page of posts (assuming page size is 10)
+        setHasMore(newPosts.length >= 10);
       }
     } catch (error) {
       console.error("Failed to fetch posts:", error);
-      setError("Failed to load posts. Please try again later.");
+      if (isRefresh || page === 1) {
+        setError("Failed to load posts. Please try again later.");
+      }
       setHasMore(false);
     } finally {
       setLoading(false);
@@ -151,6 +180,7 @@ const Community = () => {
 
     try {
       setLoading(true);
+      setError(null);
 
       const postData = {
         content: newPost,
@@ -162,23 +192,26 @@ const Community = () => {
 
       await communityService.createPost(postData);
 
-      // Reset form and refresh posts
+      // Reset form
       setNewPost("");
       setSelectedTags([]);
       setLocation("");
       setPriceRange("");
       setIsProductRequest(false);
+
+      // Reset pagination and posts state
       setPosts([]);
       setPage(1);
       setHasMore(true);
-      setError(null);
       setIsFiltering(false);
 
       // Update URL to remove filters
       navigate("/community");
 
-      // Fetch the first page again
-      await fetchPosts();
+      // Wait a moment before fetching posts to ensure the backend has processed the new post
+      setTimeout(() => {
+        fetchPosts(true); // Pass true to indicate this is a refresh
+      }, 300);
     } catch (error) {
       console.error("Failed to create post:", error);
       setError("Failed to create post. Please try again.");
@@ -795,6 +828,20 @@ const Community = () => {
                   ))}
                 </div>
               )}
+              {post.is_product_request &&
+                post.request_status === "open" &&
+                post.user_id !== parseInt(localStorage.getItem("user_id")) && (
+                  <div className="mt-3">
+                    <button
+                      onClick={() =>
+                        navigate(`/community/post/${post.id}?offer=new`)
+                      }
+                      className="bg-blue-500 text-white px-3 py-1 rounded-md hover:bg-blue-600 text-sm"
+                    >
+                      Make an Offer
+                    </button>
+                  </div>
+                )}
             </div>
           ))}
         </InfiniteScroll>

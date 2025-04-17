@@ -8,6 +8,8 @@ import Community from "./pages/Community";
 import Chats from "./pages/Chats";
 import Orders from "./pages/Orders";
 import PostDetail from "./pages/PostDetail";
+import Offers from "./pages/Offers";
+import OfferDetail from "./pages/OfferDetail";
 import Sidebar from "./components/Sidebar";
 import Header from "./components/Header";
 
@@ -128,6 +130,24 @@ const App = () => {
                 </ProtectedRoute>
               }
             />
+            {/* New offer routes */}
+            <Route
+              path="/offers"
+              element={
+                <ProtectedRoute>
+                  <Offers />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/offers/:id"
+              element={
+                <ProtectedRoute>
+                  <OfferDetail />
+                </ProtectedRoute>
+              }
+            />
+
             {/* Catch-all route */}
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
