@@ -26,8 +26,8 @@ const Login = ({ setIsAuthenticated }) => {
       if (response.data.status === "success") {
         // Store tokens in localStorage
         localStorage.setItem("token", response.data.token);
-        localStorage.setItem("refreshToken", response.data.refresh_token);
-        localStorage.setItem("userId", response.data.user_id);
+        localStorage.setItem("refresh_token", response.data.refresh_token);
+        localStorage.setItem("user_id", response.data.user_id);
         localStorage.setItem("username", response.data.username);
 
         // Update authentication state
