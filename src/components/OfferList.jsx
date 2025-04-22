@@ -6,6 +6,7 @@ const OfferList = ({
   isPostOwner,
   onStatusChange,
   showPostDetails = false,
+  onOfferClick = null,
 }) => {
   // Group offers by status
   const pendingOffers = offers.filter((offer) => offer.status === "pending");
@@ -26,6 +27,7 @@ const OfferList = ({
               isPostOwner={isPostOwner}
               onStatusChange={onStatusChange}
               showPostDetails={showPostDetails}
+              onOfferClick={onOfferClick}
             />
           ))}
         </div>
@@ -43,6 +45,7 @@ const OfferList = ({
               isPostOwner={isPostOwner}
               onStatusChange={onStatusChange}
               showPostDetails={showPostDetails}
+              onOfferClick={onOfferClick}
             />
           ))}
         </div>
@@ -60,6 +63,7 @@ const OfferList = ({
               isPostOwner={isPostOwner}
               onStatusChange={onStatusChange}
               showPostDetails={showPostDetails}
+              onOfferClick={onOfferClick}
             />
           ))}
         </div>

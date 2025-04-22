@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { communityService, offerService } from "../api/services";
 import OfferForm from "../components/OfferForm";
 import OfferList from "../components/OfferList";
+import NegotiationForm from "../components/NegotiationForm";
 
 const PostDetail = () => {
   const { id } = useParams();
@@ -12,6 +13,8 @@ const PostDetail = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showOfferForm, setShowOfferForm] = useState(false);
+  const [showNegotiationForm, setShowNegotiationForm] = useState(false);
+  const [selectedOfferId, setSelectedOfferId] = useState(null);
   const queryParams = new URLSearchParams(location.search);
   const showOfferParam = queryParams.get("offer");
 
@@ -43,6 +46,10 @@ const PostDetail = () => {
     }
   }, [id, showOfferParam]);
 
+  const handleOfferClick = (offerId) => {
+    navigate(`/offers/${offerId}`);
+  };
+
   const handleOfferCreated = () => {
     // Refresh offers list
     offerService
@@ -56,28 +63,75 @@ const PostDetail = () => {
       });
   };
 
-  const handleStatusChange = (offerId, newStatus) => {
-    // Update the status of the offer in the local state
-    setOffers(
-      offers.map((offer) =>
-        offer.id === offerId ? { ...offer, status: newStatus } : offer
-      )
-    );
+  const handleAcceptOffer = async (offerId) => {
+    try {
+      // Accept the offer
+      const response = await offerService.acceptOffer(offerId);
 
-    // If an offer was accepted, update all other offers to rejected
-    if (newStatus === "accepted") {
+      // Update the local state
       setOffers(
         offers.map((offer) =>
-          offer.id !== offerId && offer.status === "pending"
+          offer.id === offerId
+            ? { ...offer, status: "accepted" }
+            : offer.id !== offerId && offer.status === "pending"
             ? { ...offer, status: "rejected" }
             : offer
         )
       );
 
-      // Also update the post status if it's a product request
+      // If the post is a product request, update its status
       if (post.is_product_request) {
         setPost({ ...post, request_status: "fulfilled" });
       }
+
+      // If the response includes a conversation ID, redirect to chat
+      if (response.data.conversation_id) {
+        navigate(`/chats/${response.data.conversation_id}`);
+      }
+    } catch (error) {
+      console.error("Error accepting offer:", error);
+    }
+  };
+
+  const handleRejectOffer = async (offerId) => {
+    try {
+      // Reject the offer
+      await offerService.rejectOffer(offerId);
+
+      // Update the local state
+      setOffers(
+        offers.map((offer) =>
+          offer.id === offerId ? { ...offer, status: "rejected" } : offer
+        )
+      );
+    } catch (error) {
+      console.error("Error rejecting offer:", error);
+    }
+  };
+
+  const handleStartNegotiation = (offerId) => {
+    setSelectedOfferId(offerId);
+    setShowNegotiationForm(true);
+  };
+
+  // Function to handle negotiation completion
+  const handleNegotiationComplete = (data) => {
+    // Update the offer status in the UI
+    setOffers(
+      offers.map((offer) =>
+        offer.id === selectedOfferId
+          ? { ...offer, status: "negotiating" }
+          : offer
+      )
+    );
+
+    // Close the negotiation form
+    setShowNegotiationForm(false);
+    setSelectedOfferId(null);
+
+    // If the response includes a conversation ID, redirect to chat
+    if (data.conversation_id) {
+      navigate(`/chats/${data.conversation_id}`);
     }
   };
 
@@ -247,7 +301,6 @@ const PostDetail = () => {
             </button>
           )}
         </div>
-
         {showOfferForm && (
           <div className="mb-6">
             <OfferForm
@@ -258,10 +311,34 @@ const PostDetail = () => {
           </div>
         )}
 
+        {showNegotiationForm && selectedOfferId && (
+          <div className="mb-6">
+            <NegotiationForm
+              offerId={selectedOfferId}
+              currentPrice={
+                offers.find((o) => o.id === selectedOfferId)?.price || 0
+              }
+              onNegotiationComplete={handleNegotiationComplete}
+            />
+            <button
+              onClick={() => {
+                setShowNegotiationForm(false);
+                setSelectedOfferId(null);
+              }}
+              className="mt-2 text-gray-500 hover:text-gray-700"
+            >
+              Cancel
+            </button>
+          </div>
+        )}
+
         <OfferList
           offers={offers}
           isPostOwner={isPostOwner}
-          onStatusChange={handleStatusChange}
+          onAccept={handleAcceptOffer}
+          onReject={handleRejectOffer}
+          onNegotiate={handleStartNegotiation}
+          onOfferClick={handleOfferClick}
         />
       </div>
     </div>

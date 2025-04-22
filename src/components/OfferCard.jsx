@@ -1,5 +1,5 @@
 import React from "react";
-import { offerService } from "../api/services";
+import { offerService, chatService } from "../api/services";
 import { useNavigate } from "react-router-dom";
 
 const OfferCard = ({
@@ -7,6 +7,7 @@ const OfferCard = ({
   isPostOwner,
   onStatusChange,
   showPostDetails = false,
+  onOfferClick = null,
 }) => {
   const navigate = useNavigate();
   const [loading, setLoading] = React.useState(false);
@@ -31,6 +32,8 @@ const OfferCard = ({
         if (onStatusChange) {
           onStatusChange(offer.id, "accepted");
         }
+        // Redirect to chat with this user
+        redirectToChat(offer.id);
       } else {
         // Revert status if there's an error
         setLocalStatus(offer.status);
@@ -96,6 +99,29 @@ const OfferCard = ({
     }
   };
 
+  const handleNegotiate = () => {
+    // Show negotiation form or navigate to offer detail page for negotiation
+    navigate(`/offers/${offer.id}?action=negotiate`);
+  };
+
+  const redirectToChat = async (offerId) => {
+    try {
+      // Get or create conversation for this offer
+      const response = await chatService.getConversationByOffer(offerId);
+
+      if (response.data.status === "success" && response.data.conversation_id) {
+        navigate(`/chats?conversation=${response.data.conversation_id}`);
+      } else {
+        // If no specific conversation ID, just go to chats
+        navigate("/chats");
+      }
+    } catch (err) {
+      console.error("Error getting conversation:", err);
+      // If there's an error, just go to chats page
+      navigate("/chats");
+    }
+  };
+
   const getStatusBadge = (status) => {
     switch (status) {
       case "pending":
@@ -122,13 +148,24 @@ const OfferCard = ({
             Expired
           </span>
         );
+      case "negotiating":
+        return (
+          <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs">
+            Negotiating
+          </span>
+        );
       default:
         return null;
     }
   };
 
   return (
-    <div className="bg-white p-4 rounded-lg shadow-md mb-4 border-l-4 border-blue-500">
+    <div
+      className={`bg-white p-4 rounded-lg shadow-md mb-4 border-l-4 border-blue-500 ${
+        onOfferClick ? "cursor-pointer" : ""
+      }`}
+      onClick={onOfferClick ? () => onOfferClick(offer.id) : undefined}
+    >
       {error && (
         <div className="mb-4 bg-red-100 border-l-4 border-red-500 text-red-700 p-4">
           <p>{error}</p>
@@ -139,7 +176,7 @@ const OfferCard = ({
         <div>
           <h3 className="font-semibold text-lg">{offer.title}</h3>
           <p className="text-sm text-gray-500">
-            By {offer.username || offer.offer_username}
+            By {offer.offer_username || "me"}
             {!offer.is_public && (
               <span className="ml-2 text-xs">(Private Offer)</span>
             )}
@@ -191,6 +228,17 @@ const OfferCard = ({
               {loading ? "Processing..." : "Reject"}
             </button>
             <button
+              onClick={handleNegotiate}
+              disabled={loading || localStatus !== "pending"}
+              className={`px-3 py-1 rounded ${
+                loading || localStatus !== "pending"
+                  ? "bg-gray-300 cursor-not-allowed"
+                  : "bg-blue-100 text-blue-800 hover:bg-blue-200"
+              }`}
+            >
+              {loading ? "Processing..." : "Negotiate"}
+            </button>
+            <button
               onClick={handleAccept}
               disabled={loading || localStatus !== "pending"}
               className={`px-3 py-1 rounded ${
@@ -201,6 +249,28 @@ const OfferCard = ({
             >
               {loading ? "Processing..." : "Accept"}
             </button>
+          </div>
+        )}
+        {/* Add these buttons for "My Offers" section */}
+        {!isPostOwner && (
+          <div className="mt-3 flex space-x-2">
+            {localStatus === "pending" && (
+              <button
+                onClick={() => navigate(`/offers/${offer.id}`)}
+                className="px-3 py-1 rounded bg-blue-100 text-blue-800 hover:bg-blue-200"
+              >
+                See Negotiations
+              </button>
+            )}
+            {/* Chat button for accepted offers */}
+            {localStatus === "accepted" && (
+              <button
+                onClick={() => redirectToChat(offer.id)}
+                className="px-3 py-1 rounded bg-blue-500 text-white hover:bg-blue-600"
+              >
+                Chat with {isPostOwner ? "Buyer" : "Seller"}
+              </button>
+            )}
           </div>
         )}
       </div>

@@ -715,7 +715,8 @@ const Community = () => {
           {posts.map((post) => (
             <div
               key={post.id}
-              className="bg-white p-6 rounded-lg shadow-md mb-4"
+              className="bg-white p-6 rounded-lg shadow-md mb-4 cursor-pointer hover:shadow-lg transition-shadow"
+              onClick={() => navigate(`/community/post/${post.id}`)}
             >
               <div className="flex justify-between items-start mb-2">
                 <div>
@@ -725,7 +726,10 @@ const Community = () => {
                   </p>
                 </div>
                 <button
-                  onClick={() => handleSubscribe(post.id, post.is_subscribed)}
+                  onClick={(e) => {
+                    e.stopPropagation(); // Prevent the post click event from firing
+                    handleSubscribe(post.id, post.is_subscribed);
+                  }}
                   className={`px-3 py-1 rounded-full text-xs ${
                     post.is_subscribed
                       ? "bg-blue-500 text-white"
@@ -802,7 +806,8 @@ const Community = () => {
                     <span
                       key={tag}
                       className="bg-gray-100 text-gray-800 px-2 py-1 rounded-full text-xs cursor-pointer hover:bg-gray-200"
-                      onClick={() => {
+                      onClick={(e) => {
+                        e.stopPropagation(); // Prevent the post click event from firing
                         // Add the tag to the selected tags if not already there
                         if (!selectedTags.includes(tag)) {
                           // Create a new array with the existing tags plus the new one
@@ -833,9 +838,10 @@ const Community = () => {
                 post.user_id !== parseInt(localStorage.getItem("user_id")) && (
                   <div className="mt-3">
                     <button
-                      onClick={() =>
-                        navigate(`/community/post/${post.id}?offer=new`)
-                      }
+                      onClick={(e) => {
+                        e.stopPropagation(); // Prevent the post click event from firing
+                        navigate(`/community/post/${post.id}?offer=new`);
+                      }}
                       className="bg-blue-500 text-white px-3 py-1 rounded-md hover:bg-blue-600 text-sm"
                     >
                       Make an Offer

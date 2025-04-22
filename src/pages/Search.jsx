@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from "react";
 import { useDebounce } from "use-debounce";
 import { searchService } from "../api/services";
+import { useNavigate } from "react-router-dom";
 
 const Search = () => {
   const [query, setQuery] = useState("");
   const [debouncedQuery] = useDebounce(query, 300);
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
 
-  // Effect that runs when the debounced query changes
+  // When the debounced query changes
   useEffect(() => {
     const searchWithQuery = async () => {
       if (!debouncedQuery.trim()) {
@@ -37,6 +39,17 @@ const Search = () => {
     setQuery(e.target.value);
   };
 
+  // Handle click on a search result
+  const handleResultClick = (result) => {
+    if (!result || !result.type) return;
+
+    if (result.type.toLowerCase() === "post") {
+      navigate(`/community/post/${result.id}`);
+    } else if (result.type.toLowerCase() === "order") {
+      navigate(`/orders/${result.id}`);
+    }
+  };
+
   return (
     <div className="p-8">
       <h1 className="text-3xl font-bold mb-8">Search</h1>
@@ -58,12 +71,38 @@ const Search = () => {
           ? results.map((result, index) => (
               <div
                 key={result.id || index}
-                className="bg-white p-4 rounded-lg shadow-md mb-4"
+                className="bg-white p-4 rounded-lg shadow-md mb-4 cursor-pointer hover:bg-gray-50 transition-colors"
+                onClick={() => handleResultClick(result)}
               >
-                <p className="font-semibold">{result.type || "Unknown"}</p>
-                <p className="text-gray-700">
+                <div className="flex justify-between items-center">
+                  <p className="font-semibold">
+                    {result.type || "Unknown"}
+                    {result.id && (
+                      <span className="text-gray-500 text-sm ml-2">
+                        #{result.id}
+                      </span>
+                    )}
+                  </p>
+                  {result.type && (
+                    <span
+                      className={`px-2 py-1 rounded-full text-xs ${
+                        result.type.toLowerCase() === "post"
+                          ? "bg-blue-100 text-blue-800"
+                          : "bg-green-100 text-green-800"
+                      }`}
+                    >
+                      {result.type}
+                    </span>
+                  )}
+                </div>
+                <p className="text-gray-700 mt-2">
                   {result.details || "No details"}
                 </p>
+                <div className="mt-2 text-right">
+                  <span className="text-blue-500 text-sm">
+                    Click to view {result.type?.toLowerCase() || "item"}
+                  </span>
+                </div>
               </div>
             ))
           : !loading && query.trim() && <div>No results found</div>}

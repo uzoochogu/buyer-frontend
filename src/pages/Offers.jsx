@@ -2,12 +2,14 @@ import React, { useState, useEffect } from "react";
 import { offerService } from "../api/services";
 import { Tab } from "@headlessui/react";
 import OfferList from "../components/OfferList";
+import { useNavigate } from "react-router-dom";
 
 function classNames(...classes) {
   return classes.filter(Boolean).join(" ");
 }
 
 const Offers = () => {
+  const navigate = useNavigate();
   const [myOffers, setMyOffers] = useState([]);
   const [receivedOffers, setReceivedOffers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -115,6 +117,7 @@ const Offers = () => {
                 isPostOwner={true}
                 onStatusChange={handleStatusChange}
                 showPostDetails={true}
+                onOfferClick={(offerId) => navigate(`/offers/${offerId}`)}
               />
             </Tab.Panel>
             <Tab.Panel>
@@ -122,6 +125,7 @@ const Offers = () => {
                 offers={myOffers}
                 isPostOwner={false}
                 showPostDetails={true}
+                onOfferClick={(offerId) => navigate(`/offers/${offerId}`)}
               />
             </Tab.Panel>
           </Tab.Panels>

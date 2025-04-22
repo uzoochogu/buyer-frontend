@@ -146,6 +146,7 @@ export const chatService = {
   createConversation: (userId, name) => api.post('/api/v1/conversations', { user_id: userId, name }),
   getMessages: (conversationId) => api.get(`/api/v1/conversations/${conversationId}/messages`),
   sendMessage: (conversationId, content) => api.post(`/api/v1/conversations/${conversationId}/messages`, { content }),
+  getConversationByOffer: (offerId) => api.get(`/api/v1/conversations/offer/${offerId}`),
 };
 
 export const orderService = {
@@ -161,41 +162,55 @@ export const userService = {
   getUsers: () => api.get('/api/v1/users'),
 };
 
-// Add this to the existing services.js file, in the exports section
-
 export const offerService = {
   // Get all offers for a post
   getOffersForPost: (postId) => api.get(`/api/v1/posts/${postId}/offers`),
-  
+
   // Create a new offer for a post
   createOffer: (postId, offerData) => api.post(`/api/v1/posts/${postId}/offers`, offerData),
-  
+
   // Get a specific offer
   getOffer: (id) => api.get(`/api/v1/offers/${id}`),
-  
+
   // Update an offer
   updateOffer: (id, offerData) => api.put(`/api/v1/offers/${id}`, offerData),
-  
+
   // Accept an offer
   acceptOffer: (id) => api.post(`/api/v1/offers/${id}/accept`),
-  
+
+  // Accept a counter-offer (for offer creators)
+  acceptCounterOffer: (id) => api.post(`/api/v1/offers/${id}/accept-counter`),
+
   // Reject an offer
   rejectOffer: (id) => api.post(`/api/v1/offers/${id}/reject`),
-  
+
   // Get all offers made by the current user
   getMyOffers: () => api.get('/api/v1/offers/my-offers'),
-  
+
   // Get all offers received for the current user's posts
   getReceivedOffers: () => api.get('/api/v1/offers/received'),
-  
+
   // Get notifications for the current user
   getNotifications: () => api.get('/api/v1/offers/notifications'),
-  
+
   // Mark a notification as read
   markNotificationRead: (id) => api.post(`/api/v1/offers/notifications/${id}/read`),
-  
+
   // Mark all notifications as read
   markAllNotificationsRead: () => api.post('/api/v1/offers/notifications/read-all'),
+
+  negotiateOffer: (id, price, message) => api.post(`/api/v1/offers/${id}/negotiate`, { price, message }),
+
+  getNegotiations: (id) => api.get(`/api/v1/offers/${id}/negotiations`),
+
+  // upcoming features
+  requestProof: (id, message) => api.post(`/api/v1/offers/${id}/proof/request`, { message }),
+  submitProof: (id, imageUrl, description) => api.post(`/api/v1/offers/${id}/proof/submit`, { image_url: imageUrl, description }),
+  getProofs: (id) => api.get(`/api/v1/offers/${id}/proofs`),
+  approveProof: (id, proofId) => api.post(`/api/v1/offers/${id}/proof/${proofId}/approve`),
+  rejectProof: (id, proofId, reason) => api.post(`/api/v1/offers/${id}/proof/${proofId}/reject`, { reason }),
+  createEscrow: (id, amount) => api.post(`/api/v1/offers/${id}/escrow`, { amount }),
+  getEscrow: (id) => api.get(`/api/v1/offers/${id}/escrow`),
 };
 
 export default api;
