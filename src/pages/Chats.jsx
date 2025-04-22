@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
-import { chatService } from "../api/services";
+import { userService, offerService, chatService } from "../api/services";
+import { useNavigate } from "react-router-dom";
 
 const Chats = () => {
   const [conversations, setConversations] = useState([]);
@@ -12,9 +13,46 @@ const Chats = () => {
   const [conversationName, setConversationName] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [processingOfferIds, setProcessingOfferIds] = useState([]);
+  const navigate = useNavigate();
+  const [offerCache, setOfferCache] = useState({});
+  const [fetchingOfferIds, setFetchingOfferIds] = useState([]);
 
   const currentUserId = localStorage.getItem("user_id");
   const messagesEndRef = useRef(null);
+
+  const fetchOffer = async (offerId) => {
+    // If no offer ID, return early
+    if (!offerId) return null;
+
+    // If we already have this offer in cache, return it
+    if (offerCache[offerId]) {
+      return offerCache[offerId];
+    }
+
+    // If we're already fetching this offer, don't start another request
+    if (fetchingOfferIds.includes(offerId)) {
+      return null;
+    }
+
+    try {
+      setFetchingOfferIds((prev) => [...prev, offerId]);
+      const response = await offerService.getOffer(offerId);
+
+      // Update the cache with the new offer data
+      setOfferCache((prev) => ({
+        ...prev,
+        [offerId]: response.data,
+      }));
+
+      return response.data;
+    } catch (error) {
+      console.error("Failed to fetch offer:", error);
+      return null;
+    } finally {
+      setFetchingOfferIds((prev) => prev.filter((id) => id !== offerId));
+    }
+  };
 
   // Fetch conversations
   const fetchConversations = async () => {
@@ -22,7 +60,6 @@ const Chats = () => {
       setLoading(true);
       setError(null);
 
-      // For testing - if API fails, use mock data
       try {
         const response = await chatService.getConversations();
         setConversations(response.data || []);
@@ -48,20 +85,194 @@ const Chats = () => {
   // Fetch users for new conversation
   const fetchUsers = async () => {
     try {
-      // Mock data for now - replace with actual API call when available
-      const mockUsers = [
-        { id: 1, username: "user1" },
-        { id: 2, username: "user2" },
-      ];
+      const response = await userService.getUsers();
+
+      const users = response.data || [];
 
       // Filter out current user
-      const filteredUsers = mockUsers.filter(
+      const filteredUsers = users.filter(
         (user) => user.id.toString() !== currentUserId
       );
       setUsers(filteredUsers);
     } catch (error) {
       console.error("Failed to fetch users:", error);
     }
+  };
+
+  const formatCurrency = (str, currencySymbol) => {
+    // Remove any existing currency symbol and convert to a number
+    const num = parseFloat(str.replace(/[^0-9.-]+/g, ""));
+
+    // Format the number to 2 decimal places and remove trailing zeros if desired
+    const formatted = num.toFixed(2);
+    const finalFormatted = formatted.endsWith(".00")
+      ? formatted.replace(".00", "")
+      : formatted;
+
+    return currencySymbol + finalFormatted;
+  };
+
+  // formatNegotiationMessage  - uses cached offer data
+  const formatNegotiationMessage = (content, messageId, senderId, metadata) => {
+    if (content.startsWith("Proposed new price:")) {
+      // Extract information from the message
+      const lines = content.split("\n");
+      const priceText = formatCurrency(
+        lines[0].replace("Proposed new price:", "").trim(),
+        "$"
+      );
+
+      // Extract message if present
+      let messageText = "";
+      if (lines.length > 1 && lines[1].startsWith("Message:")) {
+        messageText = lines[1].replace("Message:", "").trim();
+      }
+
+      // Get offer ID from metadata
+      let offerId = null;
+      if (metadata && metadata.offer_id) {
+        offerId = metadata.offer_id;
+      }
+
+      // Get offer from cache if available
+      const offer = offerId ? offerCache[offerId] : null;
+
+      // If we have an offer ID but no cached offer data, trigger a fetch
+      // This will happen only once per offer ID
+      if (offerId && !offer && !fetchingOfferIds.includes(offerId)) {
+        // Use a setTimeout to avoid React state update during render
+        setTimeout(() => {
+          fetchOffer(offerId);
+        }, 0);
+      }
+
+      // Determine if current user is the sender or receiver
+      const isCurrentUserSender = senderId.toString() === currentUserId;
+
+      // Handle offer acceptance
+      const handleAcceptOffer = async (e) => {
+        e.stopPropagation(); // Prevent navigation
+
+        if (!offerId) return;
+
+        try {
+          setProcessingOfferIds((prev) => [...prev, offerId]);
+
+          if (currentUserId === offer.user_id.toString()) {
+            // offer creator can accept counter offer
+            await offerService.acceptCounterOffer(offerId);
+          } else {
+            // post owner can accept offer
+            await offerService.acceptOffer(offerId);
+          }
+
+          // Send a confirmation message
+          await chatService.sendMessage(
+            activeConversation,
+            `I've accepted the offer of ${priceText}. Let's proceed with the transaction!`
+          );
+
+          // Refresh the offer in cache
+          await fetchOffer(offerId);
+
+          // Refresh messages
+          const response = await chatService.getMessages(activeConversation);
+          setMessages(response.data || []);
+
+          // reload page ?
+          window.location.reload();
+        } catch (error) {
+          console.error("Failed to accept offer:", error);
+          alert("Failed to accept the offer. Please try again.");
+        } finally {
+          setProcessingOfferIds((prev) => prev.filter((id) => id !== offerId));
+        }
+      };
+
+      // Handle navigation to offer details
+      const navigateToOfferDetails = () => {
+        if (offerId) {
+          navigate(`/offers/${offerId}`);
+        }
+      };
+
+      const isProcessing = offerId && processingOfferIds.includes(offerId);
+      // const isPending = offer ? offer.status === "pending" : true; // Default to true if we don't know yet
+
+      return (
+        <div
+          className="bg-blue-50 p-3 rounded-lg border border-blue-200 cursor-pointer hover:bg-blue-100"
+          onClick={navigateToOfferDetails}
+        >
+          <div className="flex items-center mb-2">
+            <svg
+              className="w-5 h-5 text-blue-500 mr-2"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+            <span className="font-medium text-blue-800">Price Negotiation</span>
+            {offerId && (
+              <span className="ml-2 text-xs text-blue-600">
+                (Click to view details)
+              </span>
+            )}
+          </div>
+          <p className="text-lg font-bold text-blue-700 mb-2">{priceText}</p>
+          {messageText && <p className="text-gray-700 mb-3">{messageText}</p>}
+
+          {/* Show status if not pending */}
+          {offer && offer.status !== "pending" && (
+            <div className="mt-2">
+              <span
+                className={`px-2 py-1 rounded-full text-xs ${
+                  metadata.offer_status && metadata.offer_status === "accepted"
+                    ? "bg-green-100 text-green-800"
+                    : "bg-red-100 text-red-800"
+                  // offer.status === "accepted"
+                  //   ? "bg-green-100 text-green-800"
+                  //   : "bg-red-100 text-red-800"
+                }`}
+              >
+                {/* {offer.status.charAt(0).toUpperCase() + offer.status.slice(1)} */}
+                {metadata.offer_status
+                  ? metadata.offer_status.charAt(0).toUpperCase() +
+                    metadata.offer_status.slice(1)
+                  : "Missing status"}
+              </span>
+            </div>
+          )}
+
+          {/* Show accept button if this is not the sender's message, we have an offer ID, and the offer is pending */}
+          {offerId &&
+            !isCurrentUserSender &&
+            offer &&
+            offer.status === "pending" && (
+              <div className="mt-2 flex justify-end">
+                <button
+                  onClick={handleAcceptOffer}
+                  disabled={isProcessing}
+                  className={`px-3 py-1 rounded text-sm ${
+                    isProcessing
+                      ? "bg-gray-300 cursor-not-allowed"
+                      : "bg-green-500 hover:bg-green-600 text-white"
+                  }`}
+                >
+                  {isProcessing ? "Processing..." : "Accept this price"}
+                </button>
+              </div>
+            )}
+        </div>
+      );
+    }
+    return <p>{content}</p>;
   };
 
   useEffect(() => {
@@ -335,7 +546,14 @@ const Chats = () => {
                               : "bg-gray-200 text-gray-800 rounded-bl-none"
                           }`}
                         >
-                          <p>{message.content}</p>
+                          {formatNegotiationMessage(
+                            message.content,
+                            message.id,
+                            message.sender_id,
+                            message.metadata
+                              ? JSON.parse(message.metadata)
+                              : null
+                          )}
                           <p
                             className={`text-xs mt-1 ${
                               message.sender_id?.toString() === currentUserId
