@@ -287,7 +287,7 @@ const Chats = () => {
         try {
           const response = await chatService.getMessages(activeConversation);
           setMessages(response.data || []);
-          scrollToBottom();
+          // scrollToBottom();
         } catch (error) {
           console.error("Failed to fetch messages:", error);
           // Set to empty array if API fails
