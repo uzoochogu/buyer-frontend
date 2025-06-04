@@ -1,12 +1,57 @@
-# React + Vite
+# Buyer Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+## Installing Dependencies
 
-Currently, two official plugins are available:
+- Node - You can use [nvm](https://github.com/nvm-sh/nvm) to manage node versions. 23.9.0 was used for initial development (latest at time of writing).
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+    using nvm:
 
-## Expanding the ESLint configuration
+    ```bash
+    nvm install latest
+    nvm use 23.9.0
+    npm install
+    ```
 
-If you are developing a production application, we recommend using TypeScript and enable type-aware lint rules. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+### Running frontend
+
+Populate the dev environments with the correct values.
+
+Sample `.env.production` for preview deployment:
+
+```txt
+VITE_APP_BACKEND_URL=
+```
+
+Sample `.env.development`
+
+```txt
+VITE_APP_BACKEND_URL=http://localhost:5555
+```
+
+To run the frontend, run:
+
+```bash
+npm run dev
+```
+
+Default port is `5173`, which can be configured in [`vite.config.js`](./vite.config.js).
+
+Ensure that the backend server all dependent services are running.
+
+## Scripts
+
+### Development
+
+```bash
+npm run dev
+```
+
+### Production (Preview)
+
+To preview production deployment, you can use ngrok to tunnel the frontend to a public URL. Note that default port is `4173`, which can also be configured in [`vite.config.js`](./vite.config.js).  
+
+```bash
+npm run preview
+```
+
+The current vite configuration ensures requests to the backend server are reverse proxied through the frontend app.

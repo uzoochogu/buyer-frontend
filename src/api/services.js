@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const BACKEND_HOSTNAME = import.meta.env.VITE_APP_BACKEND_URL;
+const BACKEND_HOSTNAME = import.meta.env.VITE_APP_BACKEND_URL || '';
 
 // Create axios instance with base URL
 const api = axios.create({
