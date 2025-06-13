@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { communityService } from "../api/services";
 import InfiniteScroll from "react-infinite-scroll-component";
 import { useNavigate, useLocation } from "react-router-dom";
+import { useWebSocket } from "../contexts/WebSocketContext";
 
 const Community = () => {
   const [posts, setPosts] = useState([]);
@@ -22,7 +23,26 @@ const Community = () => {
 
   const navigate = useNavigate();
   const locationHook = useLocation();
+  const { refreshTriggers } = useWebSocket();
 
+  // Refresh posts when WebSocket triggers a community update
+  useEffect(() => {
+    if (refreshTriggers.community > 0) {
+      // Reset and refetch posts
+      setPosts([]);
+      setPage(1);
+      setHasMore(true);
+      setError(null);
+
+      // Fetch fresh data
+      setTimeout(() => {
+        fetchPosts();
+      }, 100);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshTriggers.community]);
+
+  // Get query parameters
   useEffect(() => {
     const params = new URLSearchParams(locationHook.search);
     const tagsParam = params.get("tags");
@@ -30,52 +50,14 @@ const Community = () => {
     const statusParam = params.get("status");
     const isProductRequestParam = params.get("is_product_request");
 
-    // Only update state if the parameters have changed
-    const newTags = tagsParam ? tagsParam.split(",") : [];
-    const hasFilters =
-      tagsParam || locationParam || statusParam || isProductRequestParam;
+    if (tagsParam) setSelectedTags(tagsParam.split(","));
+    if (locationParam) setLocation(locationParam);
+    if (statusParam) setStatus(statusParam);
+    if (isProductRequestParam)
+      setIsProductRequest(isProductRequestParam === "true");
 
-    // Update state with URL parameters
-    setSelectedTags(newTags);
-    setLocation(locationParam || "");
-    setStatus(statusParam || "");
-    setIsProductRequest(isProductRequestParam === "true");
-    setIsFiltering(!!hasFilters);
-
-    // If we have filters, reset posts and fetch filtered data
-    if (hasFilters) {
-      setPosts([]);
-      setPage(1);
-      setHasMore(true);
-      setLoading(true);
-      setError(null);
-
-      // Fetch filtered posts
-      communityService
-        // .filterPosts(locationHook.search.substring(1))
-        .filterPosts({
-          tags: newTags,
-          location: locationParam || "",
-          status: statusParam || "",
-          isProductRequest: isProductRequestParam === "true",
-        })
-        .then((response) => {
-          setPosts(response.data || []);
-          setHasMore(response.data && response.data.length >= 10);
-          // Show a message if no results found
-          if (!response.data || response.data.length === 0) {
-            setError(
-              "No posts found matching your filters. Try different filters or create a new post!"
-            );
-          }
-        })
-        .catch((error) => {
-          console.error("Failed to fetch filtered posts:", error);
-          setError("Failed to load posts. Please try again later.");
-        })
-        .finally(() => {
-          setLoading(false);
-        });
+    if (tagsParam || locationParam || statusParam || isProductRequestParam) {
+      setIsFiltering(true);
     }
   }, [locationHook.search]);
 

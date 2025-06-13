@@ -12,6 +12,8 @@ import Offers from "./pages/Offers";
 import OfferDetail from "./pages/OfferDetail";
 import Sidebar from "./components/Sidebar";
 import Header from "./components/Header";
+import NotificationBanner from "./components/NotificationBanner";
+import { WebSocketProvider, useWebSocket } from "./contexts/WebSocketContext";
 
 // Protected route component
 const ProtectedRoute = ({ children }) => {
@@ -26,15 +28,25 @@ const ProtectedRoute = ({ children }) => {
   return children;
 };
 
-const App = () => {
+// Main app content component that uses WebSocket context
+const AppContent = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(
     !!localStorage.getItem("token")
   );
+  const { connect, disconnect } = useWebSocket();
 
   // Listen for authentication changes
   useEffect(() => {
     const checkAuth = () => {
-      setIsAuthenticated(!!localStorage.getItem("token"));
+      const newAuthState = !!localStorage.getItem("token");
+      setIsAuthenticated(newAuthState);
+
+      // Connect/disconnect WebSocket based on auth state
+      if (newAuthState) {
+        connect();
+      } else {
+        disconnect();
+      }
     };
 
     // Check initially
@@ -50,7 +62,7 @@ const App = () => {
       window.removeEventListener("storage", checkAuth);
       window.removeEventListener("auth-change", checkAuth);
     };
-  }, []);
+  }, [connect, disconnect]);
 
   return (
     <div className="flex">
@@ -130,7 +142,6 @@ const App = () => {
                 </ProtectedRoute>
               }
             />
-            {/* New offer routes */}
             <Route
               path="/offers"
               element={
@@ -147,13 +158,21 @@ const App = () => {
                 </ProtectedRoute>
               }
             />
-
             {/* Catch-all route */}
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
         </div>
       </div>
+      {isAuthenticated && <NotificationBanner />}
     </div>
+  );
+};
+
+const App = () => {
+  return (
+    <WebSocketProvider>
+      <AppContent />
+    </WebSocketProvider>
   );
 };
 

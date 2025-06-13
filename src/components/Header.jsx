@@ -1,12 +1,14 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { authService } from "../api/services";
 import NotificationBadge from "./NotificationBadge";
+import { useWebSocket } from "../contexts/WebSocketContext";
 
 const Header = ({ setIsAuthenticated }) => {
   const navigate = useNavigate();
   const [username, setUsername] = useState("");
   const [showDropdown, setShowDropdown] = useState(false);
+  const { isConnected, disconnect } = useWebSocket();
 
   useEffect(() => {
     // Get username from localStorage if available
@@ -23,6 +25,9 @@ const Header = ({ setIsAuthenticated }) => {
       localStorage.removeItem("refresh_token");
       localStorage.removeItem("user_id");
       localStorage.removeItem("username");
+
+      // Disconnect WebSocket
+      disconnect();
 
       // Dispatch event to notify other components about auth change
       window.dispatchEvent(new Event("auth-change"));
@@ -45,6 +50,17 @@ const Header = ({ setIsAuthenticated }) => {
           <div className="flex">
             <div className="flex-shrink-0 flex items-center">
               <h1 className="text-xl font-bold text-gray-800">Buyer App</h1>
+              {/* WebSocket connection status */}
+              <div className="flex items-center space-x-2 ml-4">
+                <div
+                  className={`w-2 h-2 rounded-full ${
+                    isConnected ? "bg-green-500" : "bg-red-500"
+                  }`}
+                />
+                <span className="text-xs text-gray-500">
+                  {isConnected ? "Connected" : "Disconnected"}
+                </span>
+              </div>
             </div>
           </div>
           <div className="flex items-center space-x-4">

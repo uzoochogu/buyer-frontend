@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { offerService } from "../api/services";
 import { Tab } from "@headlessui/react";
 import OfferList from "../components/OfferList";
 import { useNavigate } from "react-router-dom";
+import { useWebSocket } from "../contexts/WebSocketContext";
 
 function classNames(...classes) {
   return classes.filter(Boolean).join(" ");
@@ -14,30 +15,39 @@ const Offers = () => {
   const [receivedOffers, setReceivedOffers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const { refreshTriggers } = useWebSocket();
 
+  const fetchOffers = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Fetch offers made by the current user
+      const myOffersResponse = await offerService.getMyOffers();
+      setMyOffers(myOffersResponse.data);
+
+      // Fetch offers received for the current user's posts
+      const receivedOffersResponse = await offerService.getReceivedOffers();
+      setReceivedOffers(receivedOffersResponse.data);
+    } catch (err) {
+      console.error("Error fetching offers:", err);
+      setError("Failed to load offers. Please try again later.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fetch offers on initial mount
   useEffect(() => {
-    const fetchOffers = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-
-        // Fetch offers made by the current user
-        const myOffersResponse = await offerService.getMyOffers();
-        setMyOffers(myOffersResponse.data);
-
-        // Fetch offers received for the current user's posts
-        const receivedOffersResponse = await offerService.getReceivedOffers();
-        setReceivedOffers(receivedOffersResponse.data);
-      } catch (err) {
-        console.error("Error fetching offers:", err);
-        setError("Failed to load offers. Please try again later.");
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchOffers();
   }, []);
+
+  // Refetch offers when WebSocket triggers refresh
+  useEffect(() => {
+    if (refreshTriggers.offers > 0) {
+      fetchOffers();
+    }
+  }, [refreshTriggers.offers]);
 
   const handleStatusChange = (offerId, newStatus) => {
     // Update the status of the offer in the local state

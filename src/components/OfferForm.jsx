@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { offerService } from "../api/services";
 
 const OfferForm = ({ postId, onOfferCreated, onCancel }) => {
@@ -138,11 +138,11 @@ const OfferForm = ({ postId, onOfferCreated, onCancel }) => {
           <button
             type="submit"
             className={`px-4 py-2 rounded ${
-              loading
+              !price.trim() || loading || !title.trim()
                 ? "bg-gray-400 cursor-not-allowed"
                 : "bg-blue-500 hover:bg-blue-600 text-white"
             }`}
-            disabled={loading}
+            disabled={!price.trim() || loading || !title.trim()}
           >
             {loading ? "Submitting..." : "Submit Offer"}
           </button>

@@ -40,8 +40,7 @@ api.interceptors.response.use(
       try {
         const refreshToken = localStorage.getItem('refresh_token');
         if (!refreshToken) {
-          // No refresh token available, redirect to login
-          window.location.href = '/';
+          // No refresh token available
           return Promise.reject(error);
         }
 

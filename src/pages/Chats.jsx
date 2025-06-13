@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { userService, offerService, chatService } from "../api/services";
 import { useNavigate } from "react-router-dom";
+import { useWebSocket } from "../contexts/WebSocketContext";
 
 const Chats = () => {
   const [conversations, setConversations] = useState([]);
@@ -20,6 +21,34 @@ const Chats = () => {
 
   const currentUserId = localStorage.getItem("user_id");
   const messagesEndRef = useRef(null);
+
+  const { refreshTriggers } = useWebSocket();
+
+  // Refresh conversations when WebSocket triggers a chat update
+  useEffect(() => {
+    if (refreshTriggers.chats > 0) {
+      if (activeConversation) {
+        const fetchMessages = async () => {
+          try {
+            const response = await chatService.getMessages(activeConversation);
+            setMessages(response.data || []);
+          } catch (error) {
+            console.error("Failed to fetch messages:", error);
+            setMessages([]);
+          }
+        };
+        fetchMessages();
+      }
+    }
+  }, [refreshTriggers.chats, activeConversation]);
+
+  // Refresh conversations when WebSocket triggers a conversation update
+  useEffect(() => {
+    if (refreshTriggers.conversations > 0) {
+      fetchConversations();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshTriggers.conversations]);
 
   const fetchOffer = async (offerId) => {
     // If no offer ID, return early
@@ -608,6 +637,19 @@ const Chats = () => {
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {/* Error Message */}
+      {error && (
+        <div className="fixed bottom-4 right-4 bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded">
+          <p>{error}</p>
+          <button
+            onClick={() => setError(null)}
+            className="ml-2 text-red-500 hover:text-red-700"
+          >
+            ×
+          </button>
         </div>
       )}
     </div>
