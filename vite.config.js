@@ -25,7 +25,14 @@ export default defineConfig({
         target: "http://localhost:5555",
         changeOrigin: true,
         secure: false,
-      }
+      },
+      // Proxy WebSocket requests to the backend
+      // ws://localhost:5555/ws/notifications
+      '/ws/notifications': {
+        target: 'ws://localhost:5555',
+        ws: true,
+        rewriteWsOrigin: true,
+      },
     }
   },
 })

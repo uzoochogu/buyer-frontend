@@ -25,7 +25,8 @@ class WebSocketService {
     // Cleans up any existing connection first
     this.disconnect();
 
-    const wsUrl = `ws://localhost:5555/ws/notifications?token=${encodeURIComponent(token)}`;
+    const WS_HOSTNAME = import.meta.env.VITE_APP_WS_URL || '';
+    const wsUrl = WS_HOSTNAME + `/ws/notifications?token=${encodeURIComponent(token)}`;
 
     try {
       this.ws = new WebSocket(wsUrl);
