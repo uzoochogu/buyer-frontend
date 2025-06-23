@@ -77,6 +77,59 @@ api.interceptors.response.use(
   }
 );
 
+export const locationService = {
+  getCurrentLocation: () => {
+    return new Promise((resolve, reject) => {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            console.log('Latitude:', position);
+            const { latitude, longitude, accuracy } = position.coords;
+            resolve({ latitude, longitude, accuracy });
+          },
+          (error) => {
+            switch (error.code) {
+              case error.PERMISSION_DENIED:
+                alert('Please enable location services to use this feature.');
+                console.log("User denied the request for geolocation.");
+                reject(new Error('Geolocation permission denied.'));
+                break;
+              case error.POSITION_UNAVAILABLE:
+                console.log("Location information is unavailable.");
+                alert('Location information is unavailable.');
+                reject(new Error('Location information is unavailable.'));
+                break;
+              case error.TIMEOUT:
+                reject(new Error('User location request timed out.'));
+                break;
+              case error.UNKNOWN_ERROR:
+                console.log("Unknown error while fetching user location.");
+                reject(new Error('Unknown error'));
+                break;
+            }
+          },
+          {
+            enableHighAccuracy: true,
+            timeout: 200,
+            maximumAge: 100,
+          }
+        );
+      } else {
+        alert('Geolocation is not supported by this browser.');
+        reject(new Error('Geolocation is not supported by this browser.'));
+      }
+    });
+  },
+  saveLocation: (latitude, longitude, gps_accuracy = 100.0) => {
+    // json params must be floating point numbers
+    latitude = parseFloat(latitude);
+    longitude = parseFloat(longitude);
+    gps_accuracy = parseFloat(gps_accuracy);
+
+    return api.post('/api/v1/location', { latitude, longitude, gps_accuracy });
+  },
+};
+
 // API service functions
 export const authService = {
   login: (username, password) => api.post('/api/v1/auth/login', { username, password }),
