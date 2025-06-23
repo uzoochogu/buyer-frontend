@@ -14,6 +14,7 @@ import Sidebar from "./components/Sidebar";
 import Header from "./components/Header";
 import NotificationBanner from "./components/NotificationBanner";
 import { WebSocketProvider, useWebSocket } from "./contexts/WebSocketContext";
+import { locationService } from "./api/services";
 
 // Protected route component
 const ProtectedRoute = ({ children }) => {
@@ -34,6 +35,40 @@ const AppContent = () => {
     !!localStorage.getItem("token")
   );
   const { connect, disconnect } = useWebSocket();
+
+  // location fetched and served on load
+  useEffect(() => {
+    async function getLocation() {
+      try {
+        const location = await locationService.getCurrentLocation();
+        if (location) {
+          localStorage.setItem("latitude", location.latitude);
+          localStorage.setItem("longitude", location.longitude);
+          localStorage.setItem("gps_accuracy", location.accuracy);
+        }
+      } catch (error) {
+        console.log("Error getting location: ", error);
+        // Hardcode Lagos coordinates as fallback
+        localStorage.setItem("latitude", 6.5244);
+        localStorage.setItem("longitude", 3.3792);
+        localStorage.setItem("gps_accuracy", 100);
+        // use IP address as fallback ?
+      }
+    }
+    async function saveLocation() {
+      try {
+        await locationService.saveLocation(
+          localStorage.getItem("latitude"),
+          localStorage.getItem("longitude"),
+          localStorage.getItem("gps_accuracy")
+        );
+      } catch (error) {
+        console.log("Error saving location: ", error);
+      }
+    }
+    getLocation();
+    saveLocation();
+  }, []);
 
   // Listen for authentication changes
   useEffect(() => {

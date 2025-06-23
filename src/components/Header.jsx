@@ -21,10 +21,7 @@ const Header = ({ setIsAuthenticated }) => {
   const handleLogout = async () => {
     try {
       await authService.logout();
-      localStorage.removeItem("token");
-      localStorage.removeItem("refresh_token");
-      localStorage.removeItem("user_id");
-      localStorage.removeItem("username");
+      localStorage.clear();
 
       // Disconnect WebSocket
       disconnect();
