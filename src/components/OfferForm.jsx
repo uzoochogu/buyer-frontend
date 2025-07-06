@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { offerService } from "../api/services";
+import MediaUpload from "../components/MediaUpload";
 
 const OfferForm = ({ postId, onOfferCreated, onCancel }) => {
   const [title, setTitle] = useState("");
@@ -8,6 +9,13 @@ const OfferForm = ({ postId, onOfferCreated, onCancel }) => {
   const [isPublic, setIsPublic] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [showMediaUpload, setShowMediaUpload] = useState(false);
+  const [mediaFiles, setMediaFiles] = useState([]);
+
+  const handleMediaUpload = (files) => {
+    setMediaFiles([...mediaFiles, ...files]);
+    setShowMediaUpload(false);
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -26,6 +34,13 @@ const OfferForm = ({ postId, onOfferCreated, onCancel }) => {
         description,
         price: parseFloat(price),
         is_public: isPublic,
+        // Add media files to the offer data
+        // media: mediaFiles.map(file => ({
+        //   objectKey: file.objectKey,
+        //   type: file.type,
+        //   name: file.name
+        // }))
+        media: mediaFiles.map((file) => file.objectKey),
       };
 
       const response = await offerService.createOffer(postId, offerData);
@@ -59,6 +74,88 @@ const OfferForm = ({ postId, onOfferCreated, onCancel }) => {
           <p>{error}</p>
         </div>
       )}
+
+      <div className="mb-4">
+        <div className="flex justify-between items-center mb-2">
+          <label className="block text-sm font-medium text-gray-700">
+            Media (Optional)
+          </label>
+          <button
+            type="button"
+            onClick={() => setShowMediaUpload(!showMediaUpload)}
+            className="text-sm text-blue-500 hover:text-blue-700"
+          >
+            {showMediaUpload ? "Cancel" : "Add Media"}
+          </button>
+        </div>
+
+        {showMediaUpload && (
+          <MediaUpload
+            onUploadComplete={handleMediaUpload}
+            allowMultiple={true}
+          />
+        )}
+
+        {/* Media Preview */}
+        {mediaFiles.length > 0 && (
+          <div className="mt-3">
+            <p className="text-sm text-gray-600 mb-2">
+              Selected media ({mediaFiles.length}):
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {mediaFiles.map((file, index) => (
+                <div key={index} className="relative">
+                  {file.type.startsWith("image/") ? (
+                    <img
+                      src={file.preview}
+                      alt={file.name}
+                      className="w-16 h-16 object-cover rounded border border-gray-200"
+                    />
+                  ) : file.type.startsWith("video/") ? (
+                    <div className="w-16 h-16 flex items-center justify-center bg-gray-100 rounded border border-gray-200">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-8 w-8 text-gray-400"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
+                        />
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
+                      </svg>
+                    </div>
+                  ) : (
+                    <div className="w-16 h-16 flex items-center justify-center bg-gray-100 rounded border border-gray-200">
+                      <span className="text-xs text-gray-500 truncate p-1">
+                        {file.name}
+                      </span>
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setMediaFiles(mediaFiles.filter((_, i) => i !== index))
+                    }
+                    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
 
       <form onSubmit={handleSubmit}>
         <div className="mb-4">

@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { offerService, communityService, chatService } from "../api/services";
 import NegotiationForm from "../components/NegotiationForm";
 import NegotiationHistory from "../components/NegotiationHistory";
+import MediaDisplay from "../components/MediaDisplay";
+import MediaUpload from "../components/MediaUpload";
 
 // Upcoming features
 // import ProofOfProductRequest from "../components/ProofOfProductRequest";
@@ -36,6 +38,44 @@ const OfferDetail = () => {
   const [isPostOwner, setIsPostOwner] = useState(false);
   const [isOfferCreator, setIsOfferCreator] = useState(false);
   const [showNegotiationForm, setShowNegotiationForm] = useState(false);
+
+  const [showMediaUpload, setShowMediaUpload] = useState(false);
+  const [mediaFiles, setMediaFiles] = useState([]);
+
+  const handleMediaUpload = (files) => {
+    setMediaFiles([...mediaFiles, ...files]);
+    setShowMediaUpload(false);
+
+    // Optionally send a message with the media
+    if (files.length > 0) {
+      // You can implement this to attach media to the offer
+      console.log("Media files uploaded:", files);
+    }
+  };
+
+  // Todo support updating offers
+  //   const handleUpdateOffer = async () => {
+  //   try {
+  //     setUpdating(true);
+
+  //     const updatedData = {
+  //       title: editTitle,
+  //       description: editDescription,
+  //       price: parseFloat(editPrice),
+  //       is_public: editIsPublic,
+  //       media: mediaFiles.map(file => file.objectKey)
+  //     };
+
+  //     await offerService.updateOffer(id, updatedData);
+  //     setEditing(false);
+  //     fetchOfferDetails();
+  //   } catch (error) {
+  //     console.error("Failed to update offer:", error);
+  //     setError("Failed to update offer. Please try again.");
+  //   } finally {
+  //     setUpdating(false);
+  //   }
+  // };
 
   useEffect(() => {
     const fetchOfferDetails = async () => {
@@ -340,6 +380,19 @@ const OfferDetail = () => {
                   <p className="bg-gray-50 p-3 rounded">{offer.message}</p>
                 </div>
               )}
+              {offer.media && offer.media.length > 0 && (
+                <div className="mt-4">
+                  <h3 className="text-lg font-semibold mb-2">Media</h3>
+                  <MediaDisplay
+                    mediaItems={offer.media.map((item) => ({
+                      url: item.presigned_url,
+                      type: item.mime_type,
+                      name: item.file_name,
+                      objectKey: item.object_key,
+                    }))}
+                  />
+                </div>
+              )}
             </div>
           </div>
 
@@ -444,6 +497,21 @@ const OfferDetail = () => {
               </button>
             )}
 
+            {/* Will add support to update offer by uploading media later */}
+            {/* {(isPostOwner || isOfferCreator) && offer.status === "pending" && (
+              <button
+                onClick={() => setShowMediaUpload(!showMediaUpload)}
+                disabled={loading}
+                className={`w-full p-2 mb-2 ${
+                  loading
+                    ? "bg-gray-300 cursor-not-allowed"
+                    : "bg-gray-500 hover:bg-gray-600 text-white"
+                } rounded`}
+              >
+                {showMediaUpload ? "Cancel Upload" : "Upload Media"}
+              </button>
+            )} */}
+
             <button
               onClick={handleContactSeller}
               disabled={loading}
@@ -456,6 +524,30 @@ const OfferDetail = () => {
               Contact {isPostOwner ? "Buyer" : "Seller"}
             </button>
           </div>
+        </div>
+      )}
+
+      {showMediaUpload && (
+        <div className="bg-white p-6 rounded-lg shadow-md mb-6">
+          <h2 className="text-lg font-semibold mb-2">Upload Media</h2>
+          <MediaUpload
+            onUploadComplete={handleMediaUpload}
+            allowMultiple={true}
+          />
+        </div>
+      )}
+
+      {mediaFiles.length > 0 && (
+        <div className="bg-white p-6 rounded-lg shadow-md mb-6">
+          <h2 className="text-lg font-semibold mb-2">Newly Uploaded Media</h2>
+          <MediaDisplay
+            mediaItems={offer.media.map((item) => ({
+              url: item.presigned_url,
+              type: item.mime_type,
+              name: item.file_name,
+              objectKey: item.object_key,
+            }))}
+          />
         </div>
       )}
 

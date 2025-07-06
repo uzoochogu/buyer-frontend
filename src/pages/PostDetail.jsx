@@ -5,6 +5,8 @@ import OfferForm from "../components/OfferForm";
 import OfferList from "../components/OfferList";
 import NegotiationForm from "../components/NegotiationForm";
 import { useWebSocket } from "../contexts/WebSocketContext";
+import MediaUpload from "../components/MediaUpload";
+import MediaDisplay from "../components/MediaDisplay";
 
 const PostDetail = () => {
   const { id } = useParams();
@@ -17,6 +19,7 @@ const PostDetail = () => {
   const [showNegotiationForm, setShowNegotiationForm] = useState(false);
   const [selectedOfferId, setSelectedOfferId] = useState(null);
   const { refreshTriggers, markAsRead } = useWebSocket();
+  const [showMediaUpload, setShowMediaUpload] = useState(false);
 
   const queryParams = new URLSearchParams(location.search);
   const showOfferParam = queryParams.get("offer");
@@ -26,7 +29,7 @@ const PostDetail = () => {
     if (refreshTriggers.community > 0) {
       fetchPostAndOffers();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshTriggers.community]);
 
   // Refresh offers when WebSocket triggers an update
@@ -34,7 +37,7 @@ const PostDetail = () => {
     if (refreshTriggers.offers > 0) {
       fetchOffers();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshTriggers.offers]);
 
   useEffect(() => {
@@ -46,9 +49,13 @@ const PostDetail = () => {
     if (showOfferParam === "new") {
       // setShowOfferForm(true);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, showOfferParam, markAsRead]);
 
+  const handleMediaUpload = (files) => {
+    console.log("Uploaded files:", files);
+    setShowMediaUpload(false);
+  };
   const fetchPostAndOffers = async () => {
     try {
       setLoading(true);
@@ -311,9 +318,29 @@ const PostDetail = () => {
           </div>
 
           <div className="prose max-w-none mb-6">
-            <p className="text-gray-700 text-lg leading-relaxed">
-              {post.content}
-            </p>
+            {(() => {
+              return (
+                <>
+                  {post.content && (
+                    <p className="text-gray-700 text-lg leading-relaxed mb-4">
+                      {post.content}
+                    </p>
+                  )}
+                  {post.media && post.media.length > 0 && (
+                    <div className="mb-4">
+                      <MediaDisplay
+                        mediaItems={post.media.map((item) => ({
+                          url: item.presigned_url,
+                          type: item.mime_type,
+                          name: item.file_name,
+                          objectKey: item.object_key,
+                        }))}
+                      />
+                    </div>
+                  )}
+                </>
+              );
+            })()}
           </div>
 
           {post.location && (
@@ -391,6 +418,13 @@ const PostDetail = () => {
                 >
                   {showOfferForm ? "Cancel" : "Make an Offer"}
                 </button>
+                {/* Upload button if needed */}
+                {/* <button
+                  onClick={() => setShowMediaUpload(!showMediaUpload)}
+                  className="bg-green-500 text-white px-6 py-2 rounded hover:bg-green-600"
+                >
+                  {showMediaUpload ? "Cancel Upload" : "Upload Media"}
+                </button> */}
                 <button
                   onClick={() =>
                     navigate(`/chats?new=true&user=${post.user_id}`)
@@ -402,6 +436,16 @@ const PostDetail = () => {
               </div>
             )}
           </div>
+
+          {showMediaUpload && (
+            <div className="mb-6">
+              <MediaUpload
+                onUploadComplete={handleMediaUpload}
+                allowMultiple={true}
+                showPreview={true}
+              />
+            </div>
+          )}
 
           {showOfferForm && (
             <div className="mb-6">
