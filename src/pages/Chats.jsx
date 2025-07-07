@@ -1,7 +1,9 @@
-import React, { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { userService, offerService, chatService } from "../api/services";
 import { useNavigate } from "react-router-dom";
 import { useWebSocket } from "../contexts/WebSocketContext";
+import MediaUpload from "../components/MediaUpload";
+import MediaDisplay from "../components/MediaDisplay";
 
 const Chats = () => {
   const [conversations, setConversations] = useState([]);
@@ -18,6 +20,10 @@ const Chats = () => {
   const navigate = useNavigate();
   const [offerCache, setOfferCache] = useState({});
   const [fetchingOfferIds, setFetchingOfferIds] = useState([]);
+  const [showMediaUpload, setShowMediaUpload] = useState(false);
+  const [mediaFiles, setMediaFiles] = useState([]);
+  const [uploadingMedia, setUploadingMedia] = useState(false);
+  const [uploadedMedia, setUploadedMedia] = useState(false);
 
   const currentUserId = localStorage.getItem("user_id");
   const messagesEndRef = useRef(null);
@@ -304,6 +310,44 @@ const Chats = () => {
     return <p>{content}</p>;
   };
 
+  const formatMessageContent = (message) => {
+    if (message.content.startsWith("Proposed new price:")) {
+      return formatNegotiationMessage(
+        message.content,
+        message.id,
+        message.sender_id,
+        message.metadata ? JSON.parse(message.metadata) : null
+      );
+    }
+
+    // If it has media
+    if (message.media && message.media.length > 0) {
+      return (
+        <div>
+          {message.content && <p className="mb-2">{message.content}</p>}
+          <MediaDisplay
+            mediaItems={message.media.map((item) => ({
+              url: item.presigned_url,
+              type: item.mime_type,
+              name: item.file_name,
+              objectKey: item.object_key,
+            }))}
+            compact={true}
+          />
+        </div>
+      );
+    }
+
+    // Regular text message
+    return <p>{message.content}</p>;
+  };
+
+  const handleMediaUpload = (files) => {
+    setMediaFiles([...mediaFiles, ...files]);
+    setShowMediaUpload(false);
+    setUploadedMedia(true);
+  };
+
   useEffect(() => {
     fetchConversations();
     fetchUsers();
@@ -325,8 +369,9 @@ const Chats = () => {
       };
 
       fetchMessages();
-      const interval = setInterval(fetchMessages, 3000);
-      return () => clearInterval(interval);
+      // No longer needed since we are using the websocket
+      // const interval = setInterval(fetchMessages, 3000);
+      // return () => clearInterval(interval);
     } else {
       // Reset messages when no active conversation
       setMessages([]);
@@ -338,18 +383,38 @@ const Chats = () => {
   };
 
   const handleSend = async () => {
-    if (!newMessage.trim() || !activeConversation) return;
+    if ((!newMessage.trim() && mediaFiles.length === 0) || !activeConversation)
+      return;
+
+    if (showMediaUpload && !uploadedMedia) {
+      alert("Please upload media before sending.");
+      return;
+    }
 
     try {
-      // Send the message
-      await chatService.sendMessage(activeConversation, newMessage);
+      setUploadingMedia(mediaFiles.length > 0);
+
+      const mediaObjectKeys = mediaFiles.map((file) => file.objectKey);
+
+      const response = await chatService.sendMessage(
+        activeConversation,
+        newMessage,
+        mediaObjectKeys.length > 0 ? mediaObjectKeys : undefined
+      );
 
       // Optimistically add the message to the UI
       const newMsg = {
-        id: Date.now(), // Temporary ID
+        id: response.data.message_id,
         sender_id: parseInt(currentUserId),
         content: newMessage,
-        created_at: new Date().toISOString(),
+        message_type: response.data.message_type,
+        created_at: response.data.created_at,
+        media: mediaFiles.map((file) => ({
+          object_key: file.objectKey,
+          file_name: file.name,
+          mime_type: file.type,
+          size: file.size,
+        })),
       };
 
       setMessages((prev) => [...prev, newMsg]);
@@ -358,15 +423,27 @@ const Chats = () => {
       setConversations((prev) =>
         prev.map((conv) =>
           conv.id === activeConversation
-            ? { ...conv, lastMessage: newMessage }
+            ? {
+                ...conv,
+                lastMessage:
+                  mediaFiles.length > 0 && !newMessage.trim()
+                    ? "Sent media"
+                    : newMessage,
+              }
             : conv
         )
       );
 
+      // Clear the input and media files
       setNewMessage("");
+      setMediaFiles([]);
+      setShowMediaUpload(false);
+      setUploadingMedia(false);
+
       scrollToBottom();
     } catch (error) {
       console.error("Failed to send message:", error);
+      setUploadingMedia(false);
     }
   };
 
@@ -575,14 +652,7 @@ const Chats = () => {
                               : "bg-gray-200 text-gray-800 rounded-bl-none"
                           }`}
                         >
-                          {formatNegotiationMessage(
-                            message.content,
-                            message.id,
-                            message.sender_id,
-                            message.metadata
-                              ? JSON.parse(message.metadata)
-                              : null
-                          )}
+                          {formatMessageContent(message)}
                           <p
                             className={`text-xs mt-1 ${
                               message.sender_id?.toString() === currentUserId
@@ -605,28 +675,173 @@ const Chats = () => {
                   <div ref={messagesEndRef} />
                 </div>
 
-                {/* Message input */}
-                <div className="border-t p-4 flex">
-                  <textarea
-                    value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
-                    className="flex-1 p-2 border rounded-l resize-none"
-                    placeholder="Type a message..."
-                    rows="2"
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && !e.shiftKey) {
-                        e.preventDefault();
-                        handleSend();
+                <div className="border-t p-4 flex flex-col">
+                  {showMediaUpload && (
+                    <div className="mb-4">
+                      <MediaUpload
+                        onUploadComplete={handleMediaUpload}
+                        allowMultiple={true}
+                      />
+                      <button
+                        onClick={() => setShowMediaUpload(false)}
+                        className="mt-2 text-gray-500 hover:text-gray-700 text-sm"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Preview of media to be sent */}
+                  {!showMediaUpload && mediaFiles.length > 0 && (
+                    <div className="mb-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-sm text-gray-600">
+                          Media to send ({mediaFiles.length}):
+                        </p>
+                        <button
+                          onClick={() => setMediaFiles([])}
+                          className="text-red-500 text-xs hover:text-red-700"
+                        >
+                          Clear All
+                        </button>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {mediaFiles.map((file, index) => (
+                          <div key={index} className="relative">
+                            {file.type.startsWith("image/") ? (
+                              <img
+                                src={file.preview}
+                                alt={file.name}
+                                className="w-16 h-16 object-cover rounded border border-gray-200"
+                              />
+                            ) : file.type.startsWith("video/") ? (
+                              <div className="w-16 h-16 flex items-center justify-center bg-gray-100 rounded border border-gray-200">
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  className="h-6 w-6 text-gray-400"
+                                  fill="none"
+                                  viewBox="0 0 24 24"
+                                  stroke="currentColor"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
+                                  />
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                                  />
+                                </svg>
+                              </div>
+                            ) : (
+                              <div className="w-16 h-16 flex items-center justify-center bg-gray-100 rounded border border-gray-200">
+                                <span className="text-xs text-gray-500 p-1 text-center overflow-hidden">
+                                  {file.name}
+                                </span>
+                              </div>
+                            )}
+                            <button
+                              onClick={() =>
+                                setMediaFiles(
+                                  mediaFiles.filter((_, i) => i !== index)
+                                )
+                              }
+                              className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex">
+                    <textarea
+                      value={newMessage}
+                      onChange={(e) => setNewMessage(e.target.value)}
+                      className="flex-1 p-2 border rounded-l resize-none"
+                      placeholder={
+                        mediaFiles.length > 0
+                          ? "Add a message (optional)..."
+                          : "Type a message..."
                       }
-                    }}
-                  />
-                  <button
-                    onClick={handleSend}
-                    className="bg-blue-500 text-white p-2 rounded-r"
-                    disabled={!newMessage.trim()}
-                  >
-                    Send
-                  </button>
+                      rows="2"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !e.shiftKey) {
+                          e.preventDefault();
+                          handleSend();
+                        }
+                      }}
+                    />
+                    <div className="flex flex-col">
+                      <button
+                        onClick={() => setShowMediaUpload(!showMediaUpload)}
+                        className={`p-2 ${
+                          showMediaUpload
+                            ? "bg-blue-500 text-white"
+                            : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                        }`}
+                        title="Upload Media"
+                        disabled={uploadingMedia}
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-5 w-5"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                          />
+                        </svg>
+                      </button>
+                      <button
+                        onClick={handleSend}
+                        className="bg-blue-500 text-white p-2 rounded-r hover:bg-blue-600 flex-grow"
+                        disabled={
+                          (!newMessage.trim() && mediaFiles.length === 0) ||
+                          uploadingMedia
+                        }
+                      >
+                        {uploadingMedia ? (
+                          <span className="flex items-center justify-center">
+                            <svg
+                              className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                              xmlns="http://www.w3.org/2000/svg"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                            >
+                              <circle
+                                className="opacity-25"
+                                cx="12"
+                                cy="12"
+                                r="10"
+                                stroke="currentColor"
+                                strokeWidth="4"
+                              ></circle>
+                              <path
+                                className="opacity-75"
+                                fill="currentColor"
+                                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                              ></path>
+                            </svg>
+                            Sending...
+                          </span>
+                        ) : (
+                          "Send"
+                        )}
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </>
             ) : (

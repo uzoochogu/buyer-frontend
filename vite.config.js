@@ -26,6 +26,12 @@ export default defineConfig({
         changeOrigin: true,
         secure: false,
       },
+      // Media files requests to media server
+      '/media/': {
+        target: "http://localhost:9000",
+        changeOrigin: true,
+        secure: false,
+      },
       // Proxy WebSocket requests to the backend
       // ws://localhost:5555/ws/notifications
       '/ws/notifications': {

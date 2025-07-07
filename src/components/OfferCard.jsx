@@ -1,6 +1,7 @@
 import React from "react";
 import { offerService, chatService } from "../api/services";
 import { useNavigate } from "react-router-dom";
+import MediaDisplay from "../components/MediaDisplay";
 
 const OfferCard = ({
   offer,
@@ -208,6 +209,20 @@ const OfferCard = ({
       )}
 
       <p className="text-gray-700 mb-4">{offer.description}</p>
+
+      {offer.media && offer.media.length > 0 && (
+        <div className="mt-3">
+          <MediaDisplay
+            mediaItems={offer.media.map((item) => ({
+              url: item.presigned_url,
+              type: item.mime_type,
+              name: item.file_name,
+              objectKey: item.object_key,
+            }))}
+            compact={true}
+          />
+        </div>
+      )}
 
       <div className="flex justify-between items-center">
         <p className="text-xs text-gray-500">

@@ -3,6 +3,8 @@ import { communityService } from "../api/services";
 import InfiniteScroll from "react-infinite-scroll-component";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useWebSocket } from "../contexts/WebSocketContext";
+import MediaUpload from "../components/MediaUpload";
+import MediaDisplay from "../components/MediaDisplay";
 
 const Community = () => {
   const [posts, setPosts] = useState([]);
@@ -20,6 +22,8 @@ const Community = () => {
   const [isFiltering, setIsFiltering] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [customTag, setCustomTag] = useState("");
+  const [postMediaFiles, setPostMediaFiles] = useState([]);
+  const [showPostMediaUpload, setShowPostMediaUpload] = useState(false);
 
   const navigate = useNavigate();
   const locationHook = useLocation();
@@ -158,7 +162,7 @@ const Community = () => {
   };
 
   const handlePost = async () => {
-    if (!newPost.trim()) return;
+    if (!newPost.trim() && postMediaFiles.length === 0) return;
 
     try {
       setLoading(true);
@@ -170,6 +174,11 @@ const Community = () => {
         location: location,
         is_product_request: isProductRequest,
         price_range: priceRange,
+        media: postMediaFiles.map((file) => ({
+          objectKey: file.objectKey,
+          name: file.name,
+          type: file.type,
+        })),
       };
 
       await communityService.createPost(postData);
@@ -180,6 +189,8 @@ const Community = () => {
       setLocation("");
       setPriceRange("");
       setIsProductRequest(false);
+      setPostMediaFiles([]);
+      setShowPostMediaUpload(false);
 
       // Reset pagination and posts state
       setPosts([]);
@@ -190,9 +201,9 @@ const Community = () => {
       // Update URL to remove filters
       navigate("/community");
 
-      // Wait a moment before fetching posts to ensure the backend has processed the new post
+      // Wait a moment before fetching posts
       setTimeout(() => {
-        fetchPosts(true); // Pass true to indicate this is a refresh
+        fetchPosts(true); // refresh
       }, 300);
     } catch (error) {
       console.error("Failed to create post:", error);
@@ -367,6 +378,103 @@ const Community = () => {
             placeholder="What's on your mind?"
           />
         </div>
+        {/* Media Upload */}
+        <div className="mb-4">
+          <div className="flex items-center justify-between mb-2">
+            <label className="block text-sm font-medium text-gray-700">
+              Media (optional)
+            </label>
+            <button
+              type="button"
+              onClick={() => setShowPostMediaUpload(!showPostMediaUpload)}
+              className="text-blue-500 hover:text-blue-700 text-sm"
+            >
+              {showPostMediaUpload ? "Cancel" : "Add Media"}
+            </button>
+          </div>
+
+          {showPostMediaUpload && (
+            <div className="mb-4">
+              <MediaUpload
+                onUploadComplete={(files) => {
+                  setPostMediaFiles([...postMediaFiles, ...files]);
+                  setShowPostMediaUpload(false);
+                }}
+                allowMultiple={true}
+              />
+            </div>
+          )}
+
+          {/* Preview of media to be posted */}
+          {postMediaFiles.length > 0 && (
+            <div className="mb-3">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-sm text-gray-600">
+                  Media to post ({postMediaFiles.length}):
+                </p>
+                <button
+                  onClick={() => setPostMediaFiles([])}
+                  className="text-red-500 text-xs hover:text-red-700"
+                >
+                  Clear All
+                </button>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {postMediaFiles.map((file, index) => (
+                  <div key={index} className="relative">
+                    {file.type.startsWith("image/") ? (
+                      <img
+                        src={file.preview}
+                        alt={file.name}
+                        className="w-16 h-16 object-cover rounded border border-gray-200"
+                      />
+                    ) : file.type.startsWith("video/") ? (
+                      <div className="relative w-16 h-16 bg-black rounded border border-gray-200 overflow-hidden">
+                        <video
+                          src={file.preview}
+                          className="w-full h-full object-cover"
+                          muted
+                        />
+                        <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30">
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="h-6 w-6 text-white"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
+                            />
+                          </svg>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="w-16 h-16 flex items-center justify-center bg-gray-100 rounded border border-gray-200">
+                        <span className="text-xs text-gray-500 p-1 text-center overflow-hidden">
+                          {file.name}
+                        </span>
+                      </div>
+                    )}
+                    <button
+                      onClick={() =>
+                        setPostMediaFiles(
+                          postMediaFiles.filter((_, i) => i !== index)
+                        )
+                      }
+                      className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
 
         <div className="mb-4">
           <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -470,12 +578,16 @@ const Community = () => {
         )}
 
         <div className="flex justify-between items-center mt-4">
-          <p className="text-sm text-gray-500">{newPost.length} characters</p>
+          <p className="text-sm text-gray-500">
+            {newPost.length} characters | {postMediaFiles.length} media files
+          </p>
           <button
             onClick={handlePost}
-            disabled={loading || !newPost.trim()}
+            disabled={
+              loading || (!newPost.trim() && postMediaFiles.length === 0)
+            }
             className={`px-4 py-2 rounded ${
-              loading || !newPost.trim()
+              loading || (!newPost.trim() && postMediaFiles.length === 0)
                 ? "bg-gray-300 cursor-not-allowed"
                 : "bg-blue-500 hover:bg-blue-600 text-white"
             }`}
@@ -694,144 +806,159 @@ const Community = () => {
             </p>
           }
         >
-          {posts.map((post) => (
-            <div
-              key={post.id}
-              className="bg-white p-6 rounded-lg shadow-md mb-4 cursor-pointer hover:shadow-lg transition-shadow"
-              onClick={() => navigate(`/community/post/${post.id}`)}
-            >
-              <div className="flex justify-between items-start mb-2">
-                <div>
-                  <p className="font-semibold text-lg">{post.username}</p>
-                  <p className="text-xs text-gray-500">
-                    {new Date(post.created_at).toLocaleString()}
-                  </p>
-                </div>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation(); // Prevent the post click event from firing
-                    handleSubscribe(post.id, post.is_subscribed);
-                  }}
-                  className={`px-3 py-1 rounded-full text-xs ${
-                    post.is_subscribed
-                      ? "bg-blue-500 text-white"
-                      : "bg-gray-200 text-gray-800 hover:bg-gray-300"
-                  }`}
-                >
-                  {post.is_subscribed ? "Subscribed" : "Subscribe"} (
-                  {post.subscription_count})
-                </button>
-              </div>
-
-              <p className="text-gray-700 mt-2 mb-3">{post.content}</p>
-
-              {post.is_product_request && (
-                <div className="mb-3">
-                  <span className="bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full text-xs mr-2">
-                    Product Request
-                  </span>
-                  <span
-                    className={`px-2 py-1 rounded-full text-xs ${
-                      post.request_status === "open"
-                        ? "bg-green-100 text-green-800"
-                        : post.request_status === "in_progress"
-                        ? "bg-blue-100 text-blue-800"
-                        : post.request_status === "closed"
-                        ? "bg-red-100 text-red-800"
-                        : post.request_status === "fulfilled"
-                        ? "bg-purple-100 text-purple-800"
-                        : "bg-gray-100 text-gray-800"
+          {posts.map((post) => {
+            return (
+              <div
+                key={post.id}
+                className="bg-white p-6 rounded-lg shadow-md mb-4 cursor-pointer hover:shadow-lg transition-shadow"
+                onClick={() => navigate(`/community/post/${post.id}`)}
+              >
+                <div className="flex justify-between items-start mb-2">
+                  <div>
+                    <p className="font-semibold text-lg">{post.username}</p>
+                    <p className="text-xs text-gray-500">
+                      {new Date(post.created_at).toLocaleString()}
+                    </p>
+                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation(); // prevent post click event
+                      handleSubscribe(post.id, post.is_subscribed);
+                    }}
+                    className={`px-3 py-1 rounded-full text-xs ${
+                      post.is_subscribed
+                        ? "bg-blue-500 text-white"
+                        : "bg-gray-200 text-gray-800 hover:bg-gray-300"
                     }`}
                   >
-                    {post.request_status
-                      .replace("_", " ")
-                      .charAt(0)
-                      .toUpperCase() +
-                      post.request_status.replace("_", " ").slice(1)}
-                  </span>
+                    {post.is_subscribed ? "Subscribed" : "Subscribe"} (
+                    {post.subscription_count})
+                  </button>
+                </div>
 
-                  {post.price_range && (
-                    <span className="bg-gray-100 text-gray-800 px-2 py-1 rounded-full text-xs ml-2">
-                      {post.price_range}
+                <p className="text-gray-700 mt-2 mb-3">{post.content}</p>
+
+                {/* Media display */}
+                {post.media && post.media.length > 0 && (
+                  <MediaDisplay
+                    mediaItems={post.media.map((item) => ({
+                      url: item.presigned_url,
+                      type: item.mime_type,
+                      name: item.file_name,
+                      objectKey: item.object_key,
+                    }))}
+                  />
+                )}
+
+                {/* product request badges*/}
+                {post.is_product_request && (
+                  <div className="mb-3">
+                    <span className="bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full text-xs mr-2">
+                      Product Request
                     </span>
-                  )}
-                </div>
-              )}
-              {post.location && (
-                <div className="flex items-center text-sm text-gray-600 mb-3">
-                  <svg
-                    className="h-4 w-4 mr-1"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-                    />
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-                    />
-                  </svg>
-                  {post.location}
-                </div>
-              )}
-
-              {post.tags && post.tags.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  {post.tags.map((tag) => (
                     <span
-                      key={tag}
-                      className="bg-gray-100 text-gray-800 px-2 py-1 rounded-full text-xs cursor-pointer hover:bg-gray-200"
-                      onClick={(e) => {
-                        e.stopPropagation(); // Prevent the post click event from firing
-                        // Add the tag to the selected tags if not already there
-                        if (!selectedTags.includes(tag)) {
-                          // Create a new array with the existing tags plus the new one
-                          const newTags = [...selectedTags, tag];
-                          setSelectedTags(newTags);
-
-                          // Show the filters section
-                          setShowFilters(true);
-
-                          // Scroll to the filters section
-                          const filtersSection =
-                            document.querySelector(".filters-section");
-                          if (filtersSection) {
-                            filtersSection.scrollIntoView({
-                              behavior: "smooth",
-                            });
-                          }
-                        }
-                      }}
+                      className={`px-2 py-1 rounded-full text-xs ${
+                        post.request_status === "open"
+                          ? "bg-green-100 text-green-800"
+                          : post.request_status === "in_progress"
+                          ? "bg-blue-100 text-blue-800"
+                          : post.request_status === "closed"
+                          ? "bg-red-100 text-red-800"
+                          : post.request_status === "fulfilled"
+                          ? "bg-purple-100 text-purple-800"
+                          : "bg-gray-100 text-gray-800"
+                      }`}
                     >
-                      #{tag}
+                      {post.request_status
+                        .replace("_", " ")
+                        .charAt(0)
+                        .toUpperCase() +
+                        post.request_status.replace("_", " ").slice(1)}
                     </span>
-                  ))}
-                </div>
-              )}
-              {post.is_product_request &&
-                post.request_status === "open" &&
-                post.user_id !== parseInt(localStorage.getItem("user_id")) && (
-                  <div className="mt-3">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation(); // Prevent the post click event from firing
-                        navigate(`/community/post/${post.id}?offer=new`);
-                      }}
-                      className="bg-blue-500 text-white px-3 py-1 rounded-md hover:bg-blue-600 text-sm"
-                    >
-                      Make an Offer
-                    </button>
+
+                    {post.price_range && (
+                      <span className="bg-gray-100 text-gray-800 px-2 py-1 rounded-full text-xs ml-2">
+                        {post.price_range}
+                      </span>
+                    )}
                   </div>
                 )}
-            </div>
-          ))}
+
+                {/* Location */}
+                {post.location && (
+                  <div className="flex items-center text-sm text-gray-600 mb-3">
+                    <svg
+                      className="h-4 w-4 mr-1"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+                      />
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+                      />
+                    </svg>
+                    {post.location}
+                  </div>
+                )}
+
+                {/* Tags */}
+                {post.tags && post.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    {post.tags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="bg-gray-100 text-gray-800 px-2 py-1 rounded-full text-xs cursor-pointer hover:bg-gray-200"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (!selectedTags.includes(tag)) {
+                            const newTags = [...selectedTags, tag];
+                            setSelectedTags(newTags);
+                            setShowFilters(true);
+                            const filtersSection =
+                              document.querySelector(".filters-section");
+                            if (filtersSection) {
+                              filtersSection.scrollIntoView({
+                                behavior: "smooth",
+                              });
+                            }
+                          }
+                        }}
+                      >
+                        #{tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                {/* Make offer button */}
+                {post.is_product_request &&
+                  post.request_status === "open" &&
+                  post.user_id !==
+                    parseInt(localStorage.getItem("user_id")) && (
+                    <div className="mt-3">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/community/post/${post.id}?offer=new`);
+                        }}
+                        className="bg-blue-500 text-white px-3 py-1 rounded-md hover:bg-blue-600 text-sm"
+                      >
+                        Make an Offer
+                      </button>
+                    </div>
+                  )}
+              </div>
+            );
+          })}
         </InfiniteScroll>
       ) : (
         <div className="text-center py-8">

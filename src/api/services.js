@@ -186,10 +186,52 @@ export const communityService = {
     }
     return api.get(`/api/v1/posts/filter?${queryString}`)
   },
-  createPost: (postData) => api.post('/api/v1/posts', postData),
+
+  /*   PostData postData {
+      content: content,
+    tags: selectedTags,
+    location: location,
+    is_product_request: isProductRequest,
+    price_range: priceRange,
+    media: postMediaFiles.map(file => ({
+      objectKey: file.objectKey,
+      name: file.name,
+      type: file.type
+    }))
+    } */
+  createPost: (postData) => {
+    const formattedData = { ...postData };
+
+    // media is provided as an array of objects with objectKey property,
+    // convert to array of strings (just the object keys)
+    if (formattedData.media && Array.isArray(formattedData.media)) {
+      formattedData.media = formattedData.media.map(item => {
+        if (typeof item === 'object' && item.objectKey) {
+          return item.objectKey;
+        }
+        return item;
+      });
+    }
+
+    return api.post('/api/v1/posts', formattedData);
+  },
+
+  updatePost: (id, postData) => {
+    const formattedData = { ...postData };
+
+    if (formattedData.media && Array.isArray(formattedData.media)) {
+      formattedData.media = formattedData.media.map(item => {
+        if (typeof item === 'object' && item.objectKey) {
+          return item.objectKey;
+        }
+        return item;
+      });
+    }
+
+    return api.put(`/api/v1/posts/${id}`, formattedData);
+  },
   subscribeToPost: (id) => api.post(`/api/v1/posts/${id}/subscribe`),
   unsubscribeFromPost: (id) => api.post(`/api/v1/posts/${id}/unsubscribe`),
-  updatePost: (id, postData) => api.put(`/api/v1/posts/${id}`, postData),
 };
 
 
@@ -197,7 +239,14 @@ export const chatService = {
   getConversations: () => api.get('/api/v1/conversations'),
   createConversation: (userId, name) => api.post('/api/v1/conversations', { user_id: userId, name }),
   getMessages: (conversationId) => api.get(`/api/v1/conversations/${conversationId}/messages`),
-  sendMessage: (conversationId, content) => api.post(`/api/v1/conversations/${conversationId}/messages`, { content }),
+
+  sendMessage: (conversationId, content, objectKeys = []) => {
+    const media = objectKeys;
+    return api.post(`/api/v1/conversations/${conversationId}/messages`, {
+      content,
+      media: media.length > 0 ? media : undefined
+    });
+  },
   getConversationByOffer: (offerId) => api.get(`/api/v1/conversations/offer/${offerId}`),
 };
 
@@ -219,13 +268,42 @@ export const offerService = {
   getOffersForPost: (postId) => api.get(`/api/v1/posts/${postId}/offers`),
 
   // Create a new offer for a post
-  createOffer: (postId, offerData) => api.post(`/api/v1/posts/${postId}/offers`, offerData),
+  createOffer: (postId, offerData) => {
+    const formattedData = { ...offerData };
+
+    // If media is provided as an array of objects with objectKey property,
+    // convert to array of strings (just the object keys)
+    if (formattedData.media && Array.isArray(formattedData.media)) {
+      formattedData.media = formattedData.media.map(item => {
+        if (typeof item === 'object' && item.objectKey) {
+          return item.objectKey;
+        }
+        return item;
+      });
+    }
+
+    return api.post(`/api/v1/posts/${postId}/offers`, formattedData);
+  },
 
   // Get a specific offer
   getOffer: (id) => api.get(`/api/v1/offers/${id}`),
 
   // Update an offer
-  updateOffer: (id, offerData) => api.put(`/api/v1/offers/${id}`, offerData),
+  updateOffer: (id, offerData) => {
+    const formattedData = { ...offerData };
+
+    // extract object key if stored in array of objects
+    if (formattedData.media && Array.isArray(formattedData.media)) {
+      formattedData.media = formattedData.media.map(item => {
+        if (typeof item === 'object' && item.objectKey) {
+          return item.objectKey;
+        }
+        return item;
+      });
+    }
+
+    return api.put(`/api/v1/offers/${id}`, formattedData);
+  },
 
   // Accept an offer
   acceptOffer: (id) => api.post(`/api/v1/offers/${id}/accept`),
@@ -264,5 +342,73 @@ export const offerService = {
   createEscrow: (id, amount) => api.post(`/api/v1/offers/${id}/escrow`, { amount }),
   getEscrow: (id) => api.get(`/api/v1/offers/${id}/escrow`),
 };
+
+export const mediaService = {
+  // presigned URL
+  getUploadUrl: (filename, isProof = false, contentType = 'application/octet-stream') => {
+    return api.post('/api/v1/media/upload-url', {
+      filename: filename,
+      is_proof: isProof,
+      content_type: contentType
+    });
+  },
+
+  // Uses presigned URL
+  uploadFile: async (uploadUrl, file, contentType = 'application/octet-stream') => {
+    // Note: We don't use our regular API instance here because the presigned URL
+    // is for a different server (MinIO) and has its own authentication
+
+    // Determine content type based on file extension if not provided
+    if (!contentType || contentType === 'application/octet-stream') {
+      const extension = file.name.split('.').pop().toLowerCase();
+      const contentTypeMap = {
+        'jpg': 'image/jpeg',
+        'jpeg': 'image/jpeg',
+        'png': 'image/png',
+        'gif': 'image/gif',
+        'mp4': 'video/mp4',
+        'mov': 'video/quicktime',
+        'webm': 'video/webm'
+      };
+      contentType = contentTypeMap[extension] || 'application/octet-stream';
+    }
+
+
+    return axios.put(uploadUrl, file, {
+      headers: {
+        'Content-Type': contentType
+      }
+    });
+  },
+
+
+  verifyProof: (objectKey) => {
+    return api.get(`/api/v1/media/verify-proof?object_key=${encodeURIComponent(objectKey)}`);
+  },
+
+  verifyMediaObject: (objectKey) => {
+    return api.get(`/api/v1/media/verify?object_key=${encodeURIComponent(objectKey)}`);
+  },
+
+  // Get media file (for streaming/downloading)
+  getMedia: async (objectKey) => {
+    // get presigned url
+    const response = await api.get(`/api/v1/media?object_key=${encodeURIComponent(objectKey)}`);
+    if (response.status === 200 && response.data?.download_url) {
+      return axios.get(response.data.download_url, {
+        responseType: 'blob'
+      });
+    } else {
+      throw new Error('Failed to get media');
+    }
+  },
+
+  // Gets presigned URL for viewing
+  getViewUrl: (objectKey) => {
+    return api.get(`/api/v1/media?object_key=${encodeURIComponent(objectKey)}`);
+  }
+};
+
+
 
 export default api;
